@@ -11,18 +11,22 @@ extern "C" {
     #include <libavcodec/avcodec.h>
     #include <libswscale/swscale.h>
     #include <libavutil/imgutils.h>
+    #include <libswresample/swresample.h>
 }
 # pragma comment (lib, "ffmpeg_libs/avformat.lib")
 # pragma comment (lib, "ffmpeg_libs/avcodec.lib")
 # pragma comment (lib, "ffmpeg_libs/avutil.lib")
 # pragma comment (lib, "ffmpeg_libs/swscale.lib")
+# pragma comment (lib, "ffmpeg_libs/swresample.lib")
 #include <SDL2/SDL.h>
 
 #include "logger.h"
 
 //# pragma comment (lib, "SDL2_libs/SDL2main.lib")
-# pragma comment (lib, "SDL2_libs/SDL2.lib")
+#pragma comment (lib, "SDL2_libs/SDL2.lib")
 
-# pragma comment (lib, "User32.lib")
+#pragma comment (lib, "User32.lib")
+#pragma comment (lib, "ws2_32.lib")
+
 
 

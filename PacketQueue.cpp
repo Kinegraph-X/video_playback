@@ -10,6 +10,10 @@ PacketQueue::~PacketQueue() {
 bool PacketQueue::put(AVPacket* pkt) {
     std::lock_guard<std::mutex> lock(mutex);
 
+	if (abort) {
+        return false; 
+    }
+    
     // Create a new packet and copy data
     AVPacket* packet = av_packet_alloc();
     if (!packet || av_packet_ref(packet, pkt) < 0) {
@@ -24,9 +28,14 @@ bool PacketQueue::put(AVPacket* pkt) {
 // Retrieve a packet from the queue
 bool PacketQueue::get(AVPacket* pkt) {
     std::unique_lock<std::mutex> lock(mutex);
-
+	
+	// condition.wait_for(lock, std::chrono::seconds(5), [this] { return !queue.empty() || abort; });
     condition.wait(lock, [this] { return !queue.empty(); });
 
+	if (abort) {
+        return false; // Exit if the operation was aborted
+    }
+    
     AVPacket* packet = queue.front();
     queue.pop();
     av_packet_move_ref(pkt, packet);
@@ -36,6 +45,7 @@ bool PacketQueue::get(AVPacket* pkt) {
 }
 
 size_t PacketQueue::getSize() {
+	std::lock_guard<std::mutex> lock(mutex);
 	return queue.size();
 }
 

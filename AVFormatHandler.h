@@ -1,6 +1,7 @@
 #pragma once
 
 #include "player_headers.h"
+#include "utils.h"
 
 class AVFormatHandler {
 public:
@@ -12,8 +13,8 @@ public:
     bool openFile(const char *filePath);
 
     // Retrieve video and audio stream indices
-    bool getVideoStream();
-    bool getAudioStream();
+    bool setVideoStream();
+    bool setAudioStream();
 
     // Get pointers to codec contexts (video/audio)
     AVFormatContext* getFormatContext();
@@ -27,8 +28,11 @@ public:
     AVRational getVideoTimeBase();
     AVRational getAudioTimeBase();
     
-    void getAudioSampleRate();
-    void getFrameDuration();
+    void setAudioSampleRate();
+    void setFrameDuration();
+    void setAudioChannelLayout();
+	void setAudioSampleFormat();
+	void setDuration();
     
     bool openStreams();
     
@@ -56,6 +60,9 @@ public:
 	
 	int audioSampleRate;
 	double videoFrameDuration;
+	AVChannelLayout* audioChannelLayout;
+	AVSampleFormat sampleFormat;
+	double duration = 0.;
 
     // Initialization flag
     bool initialized;

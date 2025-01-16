@@ -14,6 +14,9 @@ private:
     PacketQueue& audioQueue;
     std::atomic<bool> shouldRun{false};
     AVPacket* packet;
+    
+    mutable std::mutex mutex;
+    std::atomic<bool> abort = false;
 
 public:
     DemuxThreadHandler(
@@ -31,6 +34,11 @@ public:
 
     PacketQueue& getVideoPacketQueue() { return videoQueue; }
     PacketQueue& getAudioPacketQueue() { return audioQueue; }
+    
+    void setAbort(bool value);
+    bool isAborted();
+    
+    bool exhausted = false;
 
 private:
     void triagePacket(AVPacket* packet);

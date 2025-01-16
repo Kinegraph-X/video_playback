@@ -7,3 +7,7 @@ struct Initial_Params {
 	int height;
 	int bytes_per_sample;
 };
+
+struct Socket_Params {
+	int port;
+};

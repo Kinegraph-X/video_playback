@@ -1,6 +1,7 @@
 #pragma once
 
 #include "player_headers.h"
+#include "SDLAudioDevice.h"
 
 class SDLManager {
 public:
@@ -16,26 +17,25 @@ public:
                 const uint8_t* u_plane, int u_pitch,
                 const uint8_t* v_plane, int v_pitch,
                 int video_width, int video_height);
-
-    // Audio queue method: feeds audio data to the SDL audio queue
-    void queueAudio(const uint8_t* audio_data, uint32_t length);
+	
+	
 
     // Reset method: destroys SDL resources
     void reset();
+    void cleanUp();
 
     bool isReady();
+    
+    AudioDevice* audioDevice = nullptr;
 
 private:
     SDL_Window* window = nullptr;
     Uint32 window_id;
     SDL_Renderer* renderer = nullptr;
     SDL_Texture* texture = nullptr;     // SDL texture for video frames
-    SDL_AudioDeviceID audioDevice;
-
+    
     bool initialized;
     bool started;
-
-    void cleanup();
 };
 
 

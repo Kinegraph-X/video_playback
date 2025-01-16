@@ -9,18 +9,21 @@ AVFormatHandler::~AVFormatHandler() {
 // Open a video file and initialize contexts
 bool AVFormatHandler::openFile(const char *filePath) {
 //	this->formatContext =  avformat_alloc_context();
+	std::string basePath = GetExecutablePath();
+	std::string fullPath = basePath + filePath;
 	
 	if (avformat_open_input(&this->formatContext, filePath, NULL, NULL) != 0) {
-		logger(LogLevel::ERR, std::string("failed to open the file ") + std::string(filePath));
+		logger(LogLevel::ERR, std::string("FFMPEG failed to open the file ") + std::string(filePath));
 		return false;
 	}
 	else {
-		logger(LogLevel::INFO, std::string("successfully opened the file ") + std::string(filePath));
+		logger(LogLevel::INFO, std::string("FFMPEG successfully opened the file ") + std::string(filePath));
 	}
 	if (avformat_find_stream_info(this->formatContext, NULL) >= 0) {
-		logger(LogLevel::INFO, std::string("Found stream info"));
+		logger(LogLevel::INFO, std::string("FFMPEG Found stream info"));
 	}
 	if (this->openStreams() == true) {
+		logger(LogLevel::INFO, std::string("codec params extradata ") + LogUtils::toString(*this->videoCodecPar->extradata));
 		logger(LogLevel::INFO, std::string("video stream id ") + LogUtils::toString(this->videoStream->id));
 		logger(LogLevel::INFO, std::string("audio stream id ") + LogUtils::toString(this->audioStream->id));
 		return true;
@@ -29,10 +32,13 @@ bool AVFormatHandler::openFile(const char *filePath) {
 }
 
 bool AVFormatHandler::openStreams() {
-	if (this->getVideoStream() == true
-			&& this->getAudioStream() == true) {
-		this->getAudioSampleRate();
-		this->getFrameDuration();
+	if (this->setVideoStream() == true
+			&& this->setAudioStream() == true) {
+		this->setAudioSampleRate();
+		this->setAudioChannelLayout();
+		this->setAudioSampleFormat();
+		this->setFrameDuration();
+		this->setDuration();
 		
 		logger(LogLevel::INFO, std::string("audio samplerate is ") + LogUtils::toString(this->audioSampleRate));
 		logger(LogLevel::INFO, std::string("video frame duration is ") + LogUtils::toString(this->videoFrameDuration));
@@ -41,7 +47,7 @@ bool AVFormatHandler::openStreams() {
 	return false;
 }
 
-bool AVFormatHandler::getVideoStream() {
+bool AVFormatHandler::setVideoStream() {
 	AVCodecContext* codecContext = nullptr;
 	if (this->initializeCodecContext(&this->videoStreamIndex, this->formatContext, &codecContext, AVMEDIA_TYPE_VIDEO) >= 0){
         this->videoStream = this->formatContext->streams[this->videoStreamIndex];
@@ -53,7 +59,7 @@ bool AVFormatHandler::getVideoStream() {
     }
     return false;
 }
-bool AVFormatHandler::getAudioStream() {
+bool AVFormatHandler::setAudioStream() {
 	AVCodecContext* codecContext = nullptr;
 	if (this->initializeCodecContext(&this->audioStreamIndex, this->formatContext, &codecContext, AVMEDIA_TYPE_AUDIO) >= 0){
         this->audioStream = this->formatContext->streams[this->audioStreamIndex];
@@ -83,13 +89,13 @@ int AVFormatHandler::initializeCodecContext(int *stream_idx, AVFormatContext *fo
 		if (!decoder) {
 			logger(LogLevel::ERR, std::string("Failed find a decoder"));
 		}
+		if (ret = avcodec_parameters_to_context(*codecContext, stream->codecpar) < 0) {
+		    logger(LogLevel::ERR, std::string("Failed to copy codec parameters to context: "));
+		}
 		if ((ret = avcodec_open2(*codecContext, decoder, NULL)) < 0) {
             logger(LogLevel::ERR, std::string("Failed to open codec") + av_get_media_type_string(type));
             return ret;
         }
-        if (ret = avcodec_parameters_to_context(*codecContext, stream->codecpar) < 0) {
-		    logger(LogLevel::ERR, std::string("Failed to copy codec parameters to context: "));
-		}
 		
 		// LOG what we've found
 		char codecInfo[2048];
@@ -101,12 +107,28 @@ int AVFormatHandler::initializeCodecContext(int *stream_idx, AVFormatContext *fo
 	return ret;
 }
 
-void AVFormatHandler::getAudioSampleRate() {
+void AVFormatHandler::setAudioSampleRate() {
 	this->audioSampleRate = this->audioCodecContext->sample_rate;
 }
 
-void AVFormatHandler::getFrameDuration() {
+void AVFormatHandler::setFrameDuration() {
 	this->videoFrameDuration = 1. / (double)this->videoCodecPar->framerate.num; 
+}
+
+void AVFormatHandler::setAudioChannelLayout() {
+	this->audioChannelLayout = &this->audioCodecContext->ch_layout;
+}
+
+void AVFormatHandler::setAudioSampleFormat() {
+//	logger(LogLevel::INFO, std::string("sampleFormat ") + std::string(av_get_sample_fmt_name(this->audioCodecContext->sample_fmt)));
+	this->sampleFormat = this->audioCodecContext->sample_fmt;
+}
+
+void AVFormatHandler::setDuration() {
+//	logger(LogLevel::DEBUG, "AVFormat duration" + LogUtils::toString(this->videoStream->duration));
+//	logger(LogLevel::DEBUG, "AVFormat time_base num" + LogUtils::toString(this->videoStream->time_base.num));
+//	logger(LogLevel::DEBUG, "AVFormat time_base num" + LogUtils::toString(this->videoStream->time_base.den));
+	this->duration = (double)this->videoStream->duration * this->videoStream->time_base.num / this->videoStream->time_base.den;
 }
 
 AVFormatContext* AVFormatHandler::getFormatContext(){return formatContext;}

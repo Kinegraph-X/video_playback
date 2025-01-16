@@ -9,7 +9,13 @@ SDLManager::~SDLManager() {
 
 // Initialize SDL (video, audio, etc.)
 bool SDLManager::initialize() {
-	SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_TIMER | SDL_INIT_EVENTS);
+	int ret = SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_TIMER | SDL_INIT_EVENTS);
+	if (ret < 0) {
+		logger(LogLevel::ERR, std::string("SDL failed to start : ") + std::string(SDL_GetError()));
+	}
+	else {
+		logger(LogLevel::INFO, std::string("SDL successfully started"));
+	}
 	return true;
 }
 
@@ -23,6 +29,13 @@ bool SDLManager::start(int xpos, int ypos, int width, int height, char title[]) 
 		height,
 		SDL_WINDOW_RESIZABLE
 	);
+	
+	if (!window) {
+        logger(LogLevel::ERR, "Failed to create SDL window: " + std::string(SDL_GetError()));
+        SDL_Quit();
+        return false;
+    }
+	
 	this->window_id = SDL_GetWindowID(this->window); 
 	this->renderer = SDL_CreateRenderer(this->window, -1, 0);
 	if (this->renderer == NULL){
@@ -35,6 +48,10 @@ bool SDLManager::start(int xpos, int ypos, int width, int height, char title[]) 
         width,
         height
 	);
+	
+	audioDevice = new AudioDevice();
+	audioDevice->startAudioDevice();
+	
 	return true;
 }
 
@@ -53,14 +70,10 @@ void SDLManager::render(const uint8_t* y_plane, int y_pitch,
 	
 }
 
-// Audio queue method: feeds audio data to the SDL audio queue
-void SDLManager::queueAudio(const uint8_t* audio_data, uint32_t length) {
-//	SDL_QueueAudio;
-}
 
 // Reset method: destroys SDL resources
 void SDLManager::reset() {
-	cleanup();
+	cleanUp();
 }
 
 // Check if the SDLManager is initialized and ready
@@ -69,11 +82,12 @@ bool SDLManager::isReady()  {
 }
 
 // Internal helper to clean up resources
-void SDLManager::cleanup() {
+void SDLManager::cleanUp() {
 	SDL_DestroyTexture(texture);
 	SDL_DestroyRenderer(renderer);
 	SDL_DestroyWindow(window);
 }
+
 
 
 

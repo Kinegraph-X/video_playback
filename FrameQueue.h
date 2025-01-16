@@ -28,10 +28,12 @@ public:
 
     // Check if the queue is empty
     bool isEmpty() const ;
+    
+    mutable std::mutex mutex;                // Mutex for thread-safe access
 
 private:
     std::queue<AVFrame*> queue;              // Queue of AVFrame pointers
-    mutable std::mutex mutex;                // Mutex for thread-safe access
+    
     std::condition_variable condition;       // Condition variable for thread synchronization
     bool abort;                              // Abort flag to stop operations
 };

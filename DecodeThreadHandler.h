@@ -16,6 +16,12 @@ private:
 	FrameQueue& videoQueue;
 	FrameQueue& audioQueue;
     std::atomic<bool> shouldRun{false};
+    
+    AVPacket* packet = nullptr;
+    AVFrame* frame = nullptr;
+    
+    mutable std::mutex mutex;
+    std::atomic<bool> abort = false;
 
 public:
     DecodeThreadHandler(
@@ -26,7 +32,8 @@ public:
 		AVFormatHandler& formatHandler
 	);
     ~DecodeThreadHandler();
-
+	
+    void decodePackets(size_t maxVideoQueueSize, size_t maxAudioQueueSize);
     void decodeVideoPackets(size_t maxQueueSize);
     void decodeAudioPackets(size_t maxQueueSize);
 
@@ -36,6 +43,9 @@ public:
 
 //    PacketQueue& getVideoPacketQueue() { return videoPacketQueue; }
 //    PacketQueue& getAudioPacketQueue() { return audioPacketQueue; }
+
+	void setAbort(bool value);
+	bool isAborted();
 
 private:
 //    void triagePacket(AVPacket& packet);

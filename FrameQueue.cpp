@@ -10,9 +10,9 @@ FrameQueue::~FrameQueue() {
 bool FrameQueue::put(AVFrame* pkt) {
     std::lock_guard<std::mutex> lock(mutex);
 
-    if (abort) {
-        return false; // If abort is flagged, reject new packets
-    }
+//    if (abort) {
+//        return false; // If abort is flagged, reject new packets
+//    }
 
     // Create a new frame and copy data
     AVFrame* frame = av_frame_alloc();
@@ -21,7 +21,7 @@ bool FrameQueue::put(AVFrame* pkt) {
     }
 
     queue.push(frame);
-    condition.notify_one(); // Notify waiting threads
+    condition.notify_all(); // Notify waiting threads
     return true;
 }
 
@@ -40,6 +40,7 @@ bool FrameQueue::get(AVFrame* pkt) {
 }
 
 size_t FrameQueue::getSize() {
+	std::lock_guard<std::mutex> lock(mutex);
 	return queue.size();
 }
 

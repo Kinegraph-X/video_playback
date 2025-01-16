@@ -78,10 +78,16 @@ namespace LogUtils {
 //        return toString(static_cast<UnderlyingType>(value));
 //    }
     template std::string toString<MediaState::State>(const MediaState::State& value);
+//    template std::string toString<AVSampleFormat>(const AVSampleFormat& value);
 
     // Explicit instantiations for other types
+	template std::string toString<char>(const char&);
     template std::string toString<size_t>(const size_t&);
     template std::string toString<int>(const int&);
+    template std::string toString<unsigned short>(const unsigned short&);
+    template std::string toString<bool>(const bool&);
+    template std::string toString<uint8_t>(const uint8_t&);
+    template std::string toString<int64_t>(const int64_t&);
     template std::string toString<std::string>(const std::string&);
 
     std::string LogUtils::avPacketToString(const AVPacket* pkt) {

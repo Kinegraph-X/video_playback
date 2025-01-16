@@ -1,3 +1,4 @@
+inspector/
 dist/video_playback.exe
 dist/app_log.txt
 dist/*.dll
