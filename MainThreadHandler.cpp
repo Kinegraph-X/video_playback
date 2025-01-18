@@ -72,7 +72,7 @@ MainThreadHandler::MainThreadHandler(
     mediaState(mediaState),
     options(opts) {}
 MainThreadHandler::~MainThreadHandler() {
-	cleanUp();
+	cleanup();
 }
 
 bool MainThreadHandler::initialize() {
@@ -338,32 +338,6 @@ void MainThreadHandler::setAbort(bool value) {
 
 bool MainThreadHandler::isAborted() const { return abort; }
 
-// Clean-up resources if needed
-void MainThreadHandler::cleanUp() {
-    logger(LogLevel::INFO, "Shutting down threads...");
-    setAbort(true);
-    stop();
-
-    if (demuxThreadHandler) {
-        delete demuxThreadHandler;
-        demuxThreadHandler = nullptr;
-        if (demuxThread.joinable()) {
-            demuxThread.join();
-        }
-    }
-
-    if (decodeThreadHandler) {
-        delete decodeThreadHandler;
-        decodeThreadHandler = nullptr;
-        if (decodeThread.joinable()) {
-            decodeThread.join();
-        }
-    }
-    
-    logger(LogLevel::INFO, "Cleanup completed.");
-}
-
-
 // Create threads for video and audio
 void MainThreadHandler::createThreads() {
 	
@@ -447,7 +421,34 @@ void MainThreadHandler::logStatus(MediaState::State status, std::string origin) 
 	}
 }
 
+// Clean-up resources if needed
+void MainThreadHandler::cleanup() {
+    logger(LogLevel::INFO, "Shutting down threads...");
+    setAbort(true);
+    stop();
 
+    if (demuxThreadHandler) {
+        delete demuxThreadHandler;
+        demuxThreadHandler = nullptr;
+        if (demuxThread.joinable()) {
+            demuxThread.join();
+        }
+    }
+
+    if (decodeThreadHandler) {
+        delete decodeThreadHandler;
+        decodeThreadHandler = nullptr;
+        if (decodeThread.joinable()) {
+            decodeThread.join();
+        }
+    }
+    
+    logger(LogLevel::INFO, "Cleanup completed.");
+}
+
+void MainThreadHandler::reset() {
+    cleanup();  // Call cleanup to reset resources
+}
 
 
 

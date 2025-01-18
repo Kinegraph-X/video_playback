@@ -16,10 +16,7 @@ PlayerThreadHandler::PlayerThreadHandler(AudioDevice* audioDevice) : audioDevice
 	}
 
 PlayerThreadHandler::~PlayerThreadHandler() {
-//	logger(LogLevel::ERR, "PlayerThreadHandler destructor called");
-	delete formatHandler;
-	delete mainThreadHandler;
-    stop();
+	cleanup();
 }
 
 bool PlayerThreadHandler::loadMedia(const std::string& filePath) {
@@ -86,7 +83,7 @@ bool PlayerThreadHandler::checkMinDuration() {
 void PlayerThreadHandler::abort() {
 	logger(LogLevel::DEBUG, "PlayerThreadHandler::abort called");
 	
-	mainThreadHandler->cleanUp();
+	mainThreadHandler->reset();
 	
 	if (playbackThread.joinable()) {
         playbackThread.join();
@@ -94,4 +91,12 @@ void PlayerThreadHandler::abort() {
 	delete mainThreadHandler;
 }
 
+void PlayerThreadHandler::cleanup() {
+	delete formatHandler;
+	delete mainThreadHandler;
+    stop();
+}
 
+void PlayerThreadHandler::reset() {
+    cleanup();  // Call cleanup to reset resources
+}

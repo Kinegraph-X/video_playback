@@ -18,8 +18,8 @@ public:
     ~SocketServer();
 
     bool start();
-    void stop();
     std::string receiveCommand();
+    void reset();
 
 private:
     void listenForConnections();
@@ -35,4 +35,6 @@ private:
     std::mutex commandQueueMutex;
     std::condition_variable commandQueueCondition;
     std::queue<std::string> commandQueue;
+
+    void cleanup();
 };

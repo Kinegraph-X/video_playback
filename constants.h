@@ -1,5 +1,10 @@
 #pragma once
 
+const int MAX_CONNECTIONS = 5;
+const int SAMPLERATE = 48000;
+const int CHANNEL_COUNT = 2;
+const int BUFFER_SIZE = 4096;
+
 struct InitialParams {
 	int xpos;
 	int ypos;

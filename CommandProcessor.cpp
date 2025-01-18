@@ -155,5 +155,5 @@ void CommandProcessor::abort() {
     for (auto& [id, handler] : playerHandlers) {
         delete handler;
     }
-    socketServer.stop();
+    socketServer.reset();
 }

@@ -4,7 +4,7 @@ ImageRescaler::ImageRescaler() : swsContext(nullptr) {
 	
 }
 ImageRescaler::~ImageRescaler() {
-	cleanUp();
+	cleanup();
 }
 
 void ImageRescaler::initializeSwsContext(AVCodecContext* codecContext, const WindowSize* initial_params) {
@@ -86,8 +86,10 @@ AVFrame* ImageRescaler::rescaleFrame(AVFrame* frame, const WindowSize& windowSiz
     return scaledFrame;
 }
 
-
-void ImageRescaler::cleanUp() {
+void ImageRescaler::cleanup() {
 	sws_freeContext(swsContext);
 }
     
+void ImageRescaler::reset() {
+    cleanup();  // Call cleanup to reset resources
+}

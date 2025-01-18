@@ -13,9 +13,7 @@ DecodeThreadHandler::DecodeThreadHandler(
 	audioQueue(audioQueue),
 	formatHandler(formatHandler) {};
 DecodeThreadHandler::~DecodeThreadHandler() {
-	stopThread();
-	av_packet_free(&packet);
-	av_frame_free(&frame);
+	cleanup();
 };
 
 void DecodeThreadHandler::decodePackets(size_t maxVideoQueueSize, size_t maxAudioQueueSize) {
@@ -215,3 +213,12 @@ bool DecodeThreadHandler::isAborted() {
 	return abort;
 }
 
+void DecodeThreadHandler::cleanup() {
+    stopThread();
+	av_packet_free(&packet);
+	av_frame_free(&frame);
+}
+
+void DecodeThreadHandler::reset() {
+    cleanup();  // Call cleanup to reset resources
+}

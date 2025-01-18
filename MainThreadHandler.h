@@ -113,14 +113,14 @@ public:
 
     bool initialize();
     
-    void setAbort(bool value);
-    bool isAborted() const;
-    void cleanUp();
-    
     void play();
 	void pause();
 	void stop();
 	void seek(double position);
+	
+	void setAbort(bool value);
+    bool isAborted() const;
+    void reset();
 
 private:
 	void manageAudioQueue();
@@ -132,4 +132,5 @@ private:
     void setMinAudioDeviceQueueSize();
     SDL_Event newEvent(PlayerEvent::Type);
     void logStatus(MediaState::State status, std::string origin);
+    void cleanup();
 };

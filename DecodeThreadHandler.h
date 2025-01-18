@@ -47,7 +47,8 @@ public:
 
 	void setAbort(bool value);
 	bool isAborted();
+    void reset();
 
 private:
-//    void triagePacket(AVPacket& packet);
+    void cleanup();
 };

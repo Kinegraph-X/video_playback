@@ -6,8 +6,7 @@ DemuxThreadHandler::DemuxThreadHandler(
 	AVFormatHandler& formatHandler
 	) : videoQueue(videoQueue), audioQueue(audioQueue), formatHandler(formatHandler) {}
 DemuxThreadHandler::~DemuxThreadHandler() {
-	stopThread();
-	av_packet_free(&packet);
+	cleanup();
 }
 
 
@@ -124,3 +123,11 @@ bool DemuxThreadHandler::isAborted() {
 	return abort;
 }
 
+void DemuxThreadHandler::cleanup() {
+    stopThread();
+	av_packet_free(&packet);
+}
+
+void DemuxThreadHandler::reset() {
+    cleanup();  // Call cleanup to reset resources
+}

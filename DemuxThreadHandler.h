@@ -40,7 +40,9 @@ public:
     bool isAborted();
     
     bool exhausted = false;
+    void reset();
 
 private:
     void triagePacket(AVPacket* packet);
+    void cleanup();
 };

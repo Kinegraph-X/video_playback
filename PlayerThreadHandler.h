@@ -27,6 +27,7 @@ public:
     void seek(double timestamp);
     bool checkMinDuration();
     void abort();
+    void reset();
 	
 	AVFormatHandler* formatHandler = nullptr;    
     MainThreadHandler* mainThreadHandler = nullptr;
@@ -46,5 +47,6 @@ private:
     MainThreadOptions mainThreadOptions;
     
     std::thread playbackThread;
+    void cleanup();
 };
 

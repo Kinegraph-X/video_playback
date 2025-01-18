@@ -8,11 +8,7 @@
 #include "ImageRescaler.h"
 #include "PlayerThreadHandler.h"
 #include "ShouldRenderHandler.h"
-//#include "AVFormatHandler.h"
-//#include "PacketQueue.h"
-//#include "FrameQueue.h"
-//#include "MediaState.h"
-//#include "MainThreadHandler.h"
+
 
 
 void initRescaler(SDLManager* sdlManager, AVCodecContext* videoCodecContext) {
@@ -146,7 +142,7 @@ int WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int n
 	// Cleanup
 	
 	av_frame_free(&frame);
-    socketServer.stop();
+    socketServer.reset();
     commandProcessor.abort();
     commandThread.join();
     

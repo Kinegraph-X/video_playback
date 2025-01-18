@@ -2,18 +2,17 @@
 
 AudioDevice::AudioDevice() {};
 AudioDevice::~AudioDevice() {
-	av_channel_layout_uninit(&stereoChannelLayout);
-	swr_free(&swrContext);
+    this->cleanup();
 };
 
 bool AudioDevice::startAudioDevice() {
 	logger(LogLevel::DEBUG, "Number of audio devices available : " + std::to_string( SDL_GetNumAudioDevices(0)));
 	
 	SDL_zero(this->desiredSpec);
-	this->desiredSpec.freq = 48000;
+	this->desiredSpec.freq = SAMPLERATE;
 	this->desiredSpec.format = AUDIO_S16SYS;
-	this->desiredSpec.channels = 2;
-	this->desiredSpec.samples = 512;
+	this->desiredSpec.channels = CHANNEL_COUNT;
+	this->desiredSpec.samples = BUFFER_SIZE;
 	this->deviceID = SDL_OpenAudioDevice(NULL, 0, &this->desiredSpec, &this->availableSpec, 0);
 	
 	logger(LogLevel::DEBUG, "Audio buffer size obtained on the device : " + LogUtils::toString(this->availableSpec.samples));
@@ -158,4 +157,12 @@ void AudioDevice::printStatus() {
     }
 }
 
-	
+void AudioDevice::cleanup() {
+    av_channel_layout_uninit(&stereoChannelLayout);
+	swr_free(&swrContext);
+}
+
+void AudioDevice::reset() {
+    cleanup();  // Call cleanup to reset resources
+}
+

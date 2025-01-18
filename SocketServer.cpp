@@ -6,7 +6,7 @@
 SocketServer::SocketServer(int port) : port(port), serverSocket(-1), isRunning(false) {}
 
 SocketServer::~SocketServer() {
-    stop();
+    cleanup();
 }
 
 bool SocketServer::start() {
@@ -39,7 +39,7 @@ bool SocketServer::start() {
         return false;
     }
 
-    if (listen(serverSocket, 5) == SOCKET_ERROR) {
+    if (listen(serverSocket, MAX_CONNECTIONS) == SOCKET_ERROR) {
         logger(LogLevel::ERR, "Socket listen failed : " + LogUtils::toString(WSAGetLastError()));
         closesocket(serverSocket);
         WSACleanup();
@@ -51,30 +51,6 @@ bool SocketServer::start() {
     return true;
 }
 
-
-void SocketServer::stop() {
-	int ret, err;
-    if (!isRunning) return;
-
-    isRunning = false;
-    ret = closesocket(serverSocket);
-    if (ret == -1) {
-		err = WSAGetLastError();
-        logger(LogLevel::ERR, "Socket close failed" + LogUtils::toString(err));
-    }
-
-    if (listeningThread.joinable()) {
-        listeningThread.join();
-    }
-
-    for (auto& clientThread : clientThreads) {
-        if (clientThread.joinable()) {
-            clientThread.join();
-        }
-    }
-
-    clientThreads.clear();
-}
 
 void SocketServer::listenForConnections() {
 	int ret, err;
@@ -127,4 +103,32 @@ std::string SocketServer::receiveCommand() {
     }
 
     return {};
+}
+
+void SocketServer::cleanup() {
+	int ret, err;
+    if (!isRunning) return;
+
+    isRunning = false;
+    ret = closesocket(serverSocket);
+    if (ret == -1) {
+		err = WSAGetLastError();
+        logger(LogLevel::ERR, "Socket close failed" + LogUtils::toString(err));
+    }
+
+    if (listeningThread.joinable()) {
+        listeningThread.join();
+    }
+
+    for (auto& clientThread : clientThreads) {
+        if (clientThread.joinable()) {
+            clientThread.join();
+        }
+    }
+
+    clientThreads.clear();
+}
+
+void SocketServer::reset() {
+    cleanup();  // Call cleanup to reset resources
 }

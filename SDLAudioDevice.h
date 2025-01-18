@@ -13,9 +13,12 @@ class AudioDevice {
 		int setSWRContext(AVFormatHandler* formatContext);
 		int getQueuedAudioSize();
 		void printStatus();
+		void reset();
 		
 		SDL_AudioSpec desiredSpec, availableSpec;
 		SDL_AudioDeviceID deviceID;
 		AVChannelLayout stereoChannelLayout;
 		SwrContext* swrContext = nullptr;
+	private :
+		void cleanup();
 };

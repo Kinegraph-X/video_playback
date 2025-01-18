@@ -145,17 +145,45 @@ int AVFormatHandler::getAudioStreamIndex() {return audioStreamIndex;};
 
 
 
-// Check if the handler is ready
-bool AVFormatHandler::isReady() {return true;}
+
 // Reset and release all resources
-void AVFormatHandler::reset() {}
+void AVFormatHandler::reset() {
+	cleanup();
+}
 
 // Helper methods
 void AVFormatHandler::cleanup() {
-	avformat_free_context(formatContext);
-	avcodec_close(this->videoCodecContext);
-	avcodec_close(this->audioCodecContext);
-	avformat_close_input(&formatContext);
+	if (videoCodecContext) {
+		avcodec_free_context(&videoCodecContext);
+		// videoCodecContext is now nullptr
+	}
+	
+	if (audioCodecContext) {
+		avcodec_free_context(&audioCodecContext);
+		// audioCodecContext is now nullptr
+	}
+	
+	if (formatContext) {
+		avformat_close_input(&formatContext);
+		// formatContext is now nullptr
+	}
+	
+	// Reset other pointers
+	videoStream = nullptr;
+	audioStream = nullptr;
+	videoCodecPar = nullptr;  // These are owned by formatContext
+	audioCodecPar = nullptr;  // These are owned by formatContext
+	audioChannelLayout = nullptr;  // If this is owned elsewhere, adjust accordingly
+	
+	// Reset primitive types
+	videoStreamIndex = -1;
+	audioStreamIndex = -1;
+	audioSampleRate = 0;
+	videoFrameRate = 0;
+	videoFrameDuration = 0;
+	sampleFormat = AV_SAMPLE_FMT_NONE;
+	duration = 0;
+	initialized = false;
 }
 
 

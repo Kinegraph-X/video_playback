@@ -21,6 +21,7 @@ extern "C" {
 #include <SDL2/SDL.h>
 
 #include "logger.h"
+#include "constants.h"
 
 //# pragma comment (lib, "SDL2_libs/SDL2main.lib")
 #pragma comment (lib, "SDL2_libs/SDL2.lib")
