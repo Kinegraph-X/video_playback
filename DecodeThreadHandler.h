@@ -20,7 +20,8 @@ private:
     AVPacket* packet = nullptr;
     AVFrame* frame = nullptr;
     
-    mutable std::mutex mutex;
+    mutable std::mutex threadMutex;
+    std::condition_variable threadCondition;
     std::atomic<bool> abort = false;
 
 public:
@@ -34,8 +35,8 @@ public:
     ~DecodeThreadHandler();
 	
     void decodePackets(size_t maxVideoQueueSize, size_t maxAudioQueueSize);
-    void decodeVideoPackets(size_t maxQueueSize);
-    void decodeAudioPackets(size_t maxQueueSize);
+    void decodeVideoPackets(size_t maxQueueSize, std::unique_lock<std::mutex>& lock);
+    void decodeAudioPackets(size_t maxQueueSize, std::unique_lock<std::mutex>& lock);
 
     void stopThread();
 

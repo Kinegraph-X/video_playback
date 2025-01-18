@@ -19,13 +19,21 @@ void DemuxThreadHandler::demuxPackets(size_t maxVideoQueueSize, size_t maxAudioQ
     }
     
     while (!isAborted()) {
-		if (shouldRun.load(std::memory_order_acquire)
-			&& (videoQueue.getSize() < maxVideoQueueSize
-				||  audioQueue.getSize() < maxAudioQueueSize)) {
+		std::unique_lock<std::mutex> lock(threadMutex);
+		threadCondition.wait(lock, [this]() { return shouldRun.load(std::memory_order_acquire) || isAborted();});	//  
+		
+		if (isAborted()) {
+	        break;
+	    }
+		
+		if (videoQueue.getSize() < maxVideoQueueSize
+				||  audioQueue.getSize() < maxAudioQueueSize) {
+					
 			if (!formatHandler.getFormatContext()) {
 				logger(LogLevel::ERR, std::string("formatContext empty"));
 				break;
 			}
+			lock.unlock();
 //			logger(LogLevel::INFO, std::string("audioQueue size : ") + LogUtils::toString(audioQueue.getSize()));
 //			logger(LogLevel::INFO, std::string("videoQueue size : ") + LogUtils::toString(videoQueue.getSize()));
 			
@@ -50,26 +58,44 @@ void DemuxThreadHandler::demuxPackets(size_t maxVideoQueueSize, size_t maxAudioQ
 
 	        // Triage the packet to the appropriate queue
 	        triagePacket(packet);
+	        
+	        lock.lock();
+	        
 	    }
 	    else if (shouldRun.load(std::memory_order_acquire)) {
 			logger(LogLevel::INFO, std::string("demux Thread Self-Stopped"));
 			logger(LogLevel::INFO, std::string("audioPacketQueue size : ") + LogUtils::toString(audioQueue.getSize()));
 			logger(LogLevel::INFO, std::string("videoPacketQueue size : ") + LogUtils::toString(videoQueue.getSize()));
 			shouldRun = false;
+			threadCondition.notify_all();
 		}
 		
+		if (isAborted()) {
+	        break;
+	    }
+		
+		if (!shouldRun.load(std::memory_order_acquire)) {
+            // Notify stopThread() that the iteration has ended
+            threadCondition.notify_all();
+        }
+        
 		std::this_thread::sleep_for(std::chrono::microseconds(2));
     }
     logger(LogLevel::DEBUG, "Demux thread exited its infinite loop");
 }
 
 void DemuxThreadHandler::stopThread() {
+	std::unique_lock<std::mutex> lock(threadMutex);
 	shouldRun.store(false, std::memory_order_release);
-	logger(LogLevel::INFO, std::string("Demux Thread Stop called"));
+	threadCondition.wait(lock, [this]() { return !shouldRun.load(std::memory_order_acquire); });
+	threadCondition.notify_all();
+	logger(LogLevel::DEBUG, std::string("Demux Thread Stop called"));
 };
 
 void DemuxThreadHandler::wakeUpThread() {
+	std::unique_lock<std::mutex> lock(threadMutex);
 	shouldRun.store(true, std::memory_order_release);
+	threadCondition.notify_all();
 //	logger(LogLevel::INFO, std::string("Demux Thread Start called"));
 };
 
@@ -88,13 +114,13 @@ void DemuxThreadHandler::triagePacket(AVPacket* packet) {
 }
 
 void DemuxThreadHandler::setAbort(bool value) {
-	std::lock_guard<std::mutex> lock(mutex);
+	std::lock_guard<std::mutex> lock(threadMutex);
+	abort.store(value, std::memory_order_release);;
+	threadCondition.notify_all();
 	logger(LogLevel::DEBUG, "DemuxThreadHandler::setAbort CALLED");
-	abort = value;
 }
 
 bool DemuxThreadHandler::isAborted() {
-	std::lock_guard<std::mutex> lock(mutex);
 	return abort;
 }
 

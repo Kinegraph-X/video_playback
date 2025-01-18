@@ -28,16 +28,6 @@ public:
     AVRational getVideoTimeBase();
     AVRational getAudioTimeBase();
     
-    void setAudioSampleRate();
-    void setFrameDuration();
-    void setAudioChannelLayout();
-	void setAudioSampleFormat();
-	void setDuration();
-    
-    bool openStreams();
-    
-    int initializeCodecContext(int *stream_idx, AVFormatContext *formatContext, AVCodecContext **codecContext, enum AVMediaType type);
-
     // Check if the handler is ready
     bool isReady();
 
@@ -59,6 +49,7 @@ public:
 //	audioDecoder;
 	
 	int audioSampleRate;
+	int videoFrameRate;
 	double videoFrameDuration;
 	AVChannelLayout* audioChannelLayout;
 	AVSampleFormat sampleFormat;
@@ -68,6 +59,18 @@ public:
     bool initialized;
 
 private:
+
+	void setAudioSampleRate();
+    void setFrameRate();
+    void setFrameDuration();
+    void setAudioChannelLayout();
+	void setAudioSampleFormat();
+	void setDuration();
+    
+    bool openStreams();
+    
+    int initializeCodecContext(int *stream_idx, AVFormatContext *formatContext, AVCodecContext **codecContext, enum AVMediaType type);
+
     // Helper methods
     void cleanup(); // Helper for cleanup tasks
 };

@@ -15,7 +15,8 @@ private:
     std::atomic<bool> shouldRun{false};
     AVPacket* packet;
     
-    mutable std::mutex mutex;
+    mutable std::mutex threadMutex;
+    std::condition_variable threadCondition;
     std::atomic<bool> abort = false;
 
 public:

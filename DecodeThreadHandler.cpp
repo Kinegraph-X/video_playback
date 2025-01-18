@@ -31,21 +31,35 @@ void DecodeThreadHandler::decodePackets(size_t maxVideoQueueSize, size_t maxAudi
     }
     
  	while (!isAborted()) {
-		decodeVideoPackets(maxVideoQueueSize);
-		decodeAudioPackets(maxAudioQueueSize);
+		std::unique_lock<std::mutex> lock(threadMutex);
+		threadCondition.wait(lock, [this]() { return shouldRun.load(std::memory_order_acquire) || isAborted();});
 		
+		if (isAborted()) {
+	        break;
+	    }
+//	    lock.unlock();
+	    
+		decodeVideoPackets(maxVideoQueueSize, lock);
+		decodeAudioPackets(maxAudioQueueSize, lock);
+		
+		if (isAborted()) {
+	        break;
+	    }
+		
+		lock.unlock();
 		std::this_thread::sleep_for(std::chrono::microseconds(2));
 	}
 	logger(LogLevel::DEBUG, "Decode thread exited its infinite loop");
 };
 
-void DecodeThreadHandler::decodeVideoPackets(size_t maxQueueSize) {
+void DecodeThreadHandler::decodeVideoPackets(size_t maxQueueSize, std::unique_lock<std::mutex>& lock) {
 	int ret;
 	
-	if (shouldRun.load(std::memory_order_acquire)
-			&& videoPacketQueue.getSize() > 0 
+		if (videoPacketQueue.getSize() > 0 
 			&& videoQueue.getSize() < maxQueueSize) {
-				
+
+		lock.unlock();
+						
 		videoPacketQueue.get(packet);
 		char errBuf[AV_ERROR_MAX_STRING_SIZE];
 		
@@ -80,6 +94,8 @@ void DecodeThreadHandler::decodeVideoPackets(size_t maxQueueSize) {
 	 	
 	 	av_packet_unref(packet);
 		av_frame_unref(frame);
+		
+		lock.lock();
     }
     else if (shouldRun.load(std::memory_order_acquire) && videoPacketQueue.isEmpty()) {
 		logger(LogLevel::INFO, std::string("decode Thread Self-Stopped (video packetQueue is empty)"));
@@ -89,38 +105,32 @@ void DecodeThreadHandler::decodeVideoPackets(size_t maxQueueSize) {
 			
 		av_packet_unref(packet);
 		av_frame_unref(frame);
+		threadCondition.notify_all();
 	}
     else if (shouldRun.load(std::memory_order_acquire)) {
-//		logger(LogLevel::INFO, std::string("Video packet queue size : ") + LogUtils::toString(videoPacketQueue.getSize()));
-//		logger(LogLevel::INFO, std::string("Video frame queue size : ") + LogUtils::toString(videoQueue.getSize()));
-//		logger(LogLevel::INFO, std::string("max queue size : ") + LogUtils::toString(maxQueueSize));
-//		logger(LogLevel::INFO, std::string("condition is : ") + LogUtils::toString(shouldRun.load(std::memory_order_acquire) && videoPacketQueue.getSize() > 0 && videoQueue.getSize() < maxQueueSize));
-	
+//		logger(LogLevel::INFO, std::string("decode Thread Self-Stopped"));
 //		logger(LogLevel::INFO, std::string("audioFrameQueue size : ") + LogUtils::toString(audioQueue.getSize()));
 //		logger(LogLevel::INFO, std::string("videoFrameQueue size : ") + LogUtils::toString(videoQueue.getSize()));
 //		shouldRun = false;
-//		logger(LogLevel::INFO, std::string("decode Thread Self-Stopped"));
 			
 		av_packet_unref(packet);
 		av_frame_unref(frame);
+		threadCondition.notify_all();
 	}
 }
 
-void DecodeThreadHandler::decodeAudioPackets(size_t maxQueueSize) {
+void DecodeThreadHandler::decodeAudioPackets(size_t maxQueueSize, std::unique_lock<std::mutex>& lock) {
 	int ret;
 	
-	if (shouldRun.load(std::memory_order_acquire)
-			&& audioPacketQueue.getSize() > 0 
+//	if (shouldRun.load(std::memory_order_acquire)
+		if (audioPacketQueue.getSize() > 0 
 			&& audioQueue.getSize() < maxQueueSize) {
+				
+		lock.unlock();
 		
 		audioPacketQueue.get(packet);
 		char errBuf[AV_ERROR_MAX_STRING_SIZE];
 		
-//		logger(LogLevel::INFO, std::string("audio packet from queue : size : ") + LogUtils::toString(packet->size));
-//		logger(LogLevel::INFO, std::string("audio packet from queue : pts : ") + LogUtils::toString(packet->pts));
-//		logger(LogLevel::INFO, std::string("audio packet from queue : dts : ") + LogUtils::toString(packet->dts));
-//		logger(LogLevel::INFO, std::string("audio packet from queue : stream_index : ") + LogUtils::toString(packet->stream_index));
-	 
 	    ret = avcodec_send_packet(formatHandler.getAudioCodecContext(), packet);
 	    if (ret < 0) {
 			const char* errStr = av_make_error_string(errBuf, AV_ERROR_MAX_STRING_SIZE, ret);
@@ -152,6 +162,8 @@ void DecodeThreadHandler::decodeAudioPackets(size_t maxQueueSize) {
 	 	}
 	 	av_packet_unref(packet);
  		av_frame_unref(frame);
+ 		
+ 		lock.lock();
 	}
 	else if (shouldRun.load(std::memory_order_acquire) && audioPacketQueue.isEmpty()) {
 		logger(LogLevel::INFO, std::string("decode Thread Self-Stopped (audio packetQueue is empty)"));
@@ -161,12 +173,9 @@ void DecodeThreadHandler::decodeAudioPackets(size_t maxQueueSize) {
 			
 		av_packet_unref(packet);
 		av_frame_unref(frame);
+		threadCondition.notify_all();
 	}
 	else if (shouldRun.load(std::memory_order_acquire)) {
-//		logger(LogLevel::INFO, std::string("Video packet queue size : ") + LogUtils::toString(videoPacketQueue.getSize()));
-//		logger(LogLevel::INFO, std::string("Video frame queue size : ") + LogUtils::toString(videoQueue.getSize()));
-//		logger(LogLevel::INFO, std::string("max queue size : ") + LogUtils::toString(maxQueueSize));
-//		logger(LogLevel::INFO, std::string("condition is : ") + LogUtils::toString(shouldRun.load(std::memory_order_acquire) && videoPacketQueue.getSize() > 0 && videoQueue.getSize() < maxQueueSize));
 		logger(LogLevel::INFO, std::string("decode Thread Self-Stopped"));
 		logger(LogLevel::INFO, std::string("audioFrameQueue size : ") + LogUtils::toString(audioQueue.getSize()));
 		logger(LogLevel::INFO, std::string("videoFrameQueue size : ") + LogUtils::toString(videoQueue.getSize()));
@@ -174,27 +183,35 @@ void DecodeThreadHandler::decodeAudioPackets(size_t maxQueueSize) {
 			
 		av_packet_unref(packet);
 		av_frame_unref(frame);
+		threadCondition.notify_all();
 	}
 };
 
 void DecodeThreadHandler::stopThread() {
-	shouldRun.store(false, std::memory_order_release);
-	logger(LogLevel::INFO, std::string("Decode Thread Stop called"));
+	std::unique_lock<std::mutex> lock(threadMutex);
+    shouldRun.store(false, std::memory_order_release);
+    threadCondition.notify_all();
+    // Wait until the current iteration ends
+    threadCondition.wait(lock, [this]() { return !shouldRun.load(std::memory_order_acquire); });
+	
+	logger(LogLevel::DEBUG, std::string("Decode Thread Stop called"));
 };
 
 void DecodeThreadHandler::wakeUpThread() {
+	std::unique_lock<std::mutex> lock(threadMutex);
 	shouldRun.store(true, std::memory_order_release);
+	threadCondition.notify_all();
 //	logger(LogLevel::INFO, std::string("Decode Thread Start called"));
 };
 
 void DecodeThreadHandler::setAbort(bool value) {
+	std::lock_guard<std::mutex> lock(threadMutex);
+	abort.store(value, std::memory_order_release);;
+	threadCondition.notify_all();
 	logger(LogLevel::DEBUG, "DecodeThreadHandler::setAbort CALLED");
-	std::lock_guard<std::mutex> lock(mutex);
-	abort = value;
 }
 
 bool DecodeThreadHandler::isAborted() {
-	std::lock_guard<std::mutex> lock(mutex);
 	return abort;
 }
 

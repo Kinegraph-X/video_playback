@@ -2,6 +2,7 @@
 
 #include <string>
 #include <thread>
+#include "constants.h"
 #include "PacketQueue.h"
 #include "FrameQueue.h"
 #include "AVFormatHandler.h"
@@ -16,10 +17,20 @@ struct MainThreadOptions {
     size_t minAudioPacketQueueSize = 80;
     size_t maxAudioPacketQueueSize = 160;
     
+    size_t seekMinVideoPacketQueueSize = 1; 
+    size_t seekMaxVideoPacketQueueSize = 60;
+    size_t seekMinAudioPacketQueueSize = 1;
+    size_t seekMaxAudioPacketQueueSize = 160;
+    
     size_t minVideoFrameQueueSize = 10;
     size_t maxVideoFrameQueueSize = 30;
     size_t minAudioFrameQueueSize = 25;
     size_t maxAudioFrameQueueSize = 80;
+    
+    size_t seekMinVideoFrameQueueSize = 1;
+    size_t seekMaxVideoFrameQueueSize = 30;
+    size_t seekMinAudioFrameQueueSize = 1;
+    size_t seekMaxAudioFrameQueueSize = 80;
     
     size_t minAudioDeviceQueueSize = 25;	// defined in the initializer function, based on the actual frame duration
 //    bool enableVideo = true;
@@ -82,6 +93,7 @@ private:
     MainThreadOptions& options;
     
     bool abort = false;
+    mutable std::mutex mutex;
 
 public:
     MainThreadHandler(
@@ -118,5 +130,6 @@ private:
     void resetQueues();
     void mainLoop();
     void setMinAudioDeviceQueueSize();
+    SDL_Event newEvent(PlayerEvent::Type);
     void logStatus(MediaState::State status, std::string origin);
 };

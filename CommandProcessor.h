@@ -15,15 +15,19 @@
 
 class CommandProcessor {
 public:
-	CommandProcessor(std::atomic<bool>& runningFlag, SocketServer& socketServer, AudioDevice* audioDevice, ImageRescaler& rescaler);
+	CommandProcessor(std::atomic<bool>& runningFlag, SocketServer& socketServer, AudioDevice* audioDevice);
     ~CommandProcessor();
 	void handleLoad(const std::string& filePath);
     void listeningLoop();
+    
+    PlayerThreadHandler* getPlayerHandlerAt(int position);
+    
     void abort();
     
     std::unordered_map<int, PlayerThreadHandler*> playerHandlers;
-    ImageRescaler& rescaler;
+//    ImageRescaler& rescaler;
     
+    int activeHandlerId = -1;
     bool errorState = false;
 
 private:
@@ -31,14 +35,14 @@ private:
     void handlePause();
     void handleStop();
     void cleanUpOldHandler(int id);
-
+	
+	std::mutex mutex;
     std::atomic<bool>& isRunning;
     AudioDevice* audioDevice;
     SocketServer& socketServer;
 
     std::unordered_map<int, std::thread> playerThreads;
     
-    int activeHandlerId = -1;
     int nextHandlerId = 0;
 };
 

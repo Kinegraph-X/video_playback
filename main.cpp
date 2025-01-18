@@ -6,6 +6,8 @@
 #include "CommandProcessor.h"
 #include "SocketServer.h"
 #include "ImageRescaler.h"
+#include "PlayerThreadHandler.h"
+#include "ShouldRenderHandler.h"
 //#include "AVFormatHandler.h"
 //#include "PacketQueue.h"
 //#include "FrameQueue.h"
@@ -13,50 +15,46 @@
 //#include "MainThreadHandler.h"
 
 
-Initial_Params initial_params = {
-	500,
-	200,
-	570,
-	320,
-	av_get_bytes_per_sample(AV_SAMPLE_FMT_S16)
-};
-
-Socket_Params socket_params = {
-	51312
-};
+void initRescaler(SDLManager* sdlManager, AVCodecContext* videoCodecContext) {
+    int width = 0, height = 0;
+    SDL_GetWindowSize(sdlManager->window, &width, &height);
+    WindowSize windowSize{width, height};
+    sdlManager->resizeWindowFileLoaded(videoCodecContext, &windowSize);
+}
 
 
-
-//void log_callback(void *ptr, int level, const char *fmt, va_list vargs) {
-//	char buffer[1024];
-//    snprintf(buffer, sizeof(buffer), fmt, vargs);
-//    logger(LogLevel::DEBUG, std::string(buffer));
-//};
 
 int WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow) {
 	av_log_set_level(AV_LOG_VERBOSE);
-//	av_log_set_callback(log_callback);
+	
+	InitialParams* initialParams = new InitialParams{
+		500,
+		200,
+		570,
+		320,
+		av_get_bytes_per_sample(AV_SAMPLE_FMT_S16)
+	};
+	
+	Socket_Params socket_params = {
+		51312
+	};
 
-	// Define a global state for running the main loop
 	std::atomic<bool> isRunning(true);
 
 //	SetDllDirectory(GetExecutablePath().c_str());
-//	logger(LogLevel::INFO, "Application Started");
 
-//	MediaState mediaState;
-
-	ImageRescaler rescaler;
+	ImageRescaler* rescaler = new ImageRescaler();
 	
-	SDLManager sdl_manager;
-	if (!sdl_manager.initialize()) {
+	SDLManager* sdl_manager = new SDLManager();
+	if (!sdl_manager->initialize(rescaler)) {
 		logger(LogLevel::ERR, "Exiting after SDL error");
 		return -1;
 	}
-	sdl_manager.start(
-		initial_params.xpos,
-		initial_params.ypos,
-		initial_params.width,
-		initial_params.height,
+	sdl_manager->start(
+		initialParams->xpos,
+		initialParams->ypos,
+		initialParams->width,
+		initialParams->height,
 		"Video Player"
 	);
 	
@@ -66,68 +64,99 @@ int WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int n
     SocketServer socketServer(socket_params.port);
     if (!socketServer.start()) {
         logger(LogLevel::ERR, "Failed to start TCP server");
-        sdl_manager.cleanUp();
+        sdl_manager->cleanUp();
         SDL_Quit();
         return -1;
     }
     
-    CommandProcessor commandProcessor(isRunning, socketServer, sdl_manager.audioDevice, rescaler);
+    CommandProcessor commandProcessor(isRunning, socketServer, sdl_manager->audioDevice);
     std::thread commandThread(&CommandProcessor::listeningLoop, &commandProcessor);
     commandProcessor.handleLoad(filePath);
 	
-//	std::string basePath = GetExecutablePath();
-//	std::string fullPath = basePath + "\\media\\test_video.mp4";
-//	
-//	const char* filePath = fullPath.c_str();
-//	AVFormatHandler* formatHandler = &AVFormatHandler();
-//	if (formatHandler->openFile(filePath) == true) {
-//		logger(LogLevel::INFO, std::string("MediaState::LOADED"));
-//		mediaState.status = MediaState::LOADED;
-//	};
-//	
-//	audioDevice->setSWRContext(formatHandler);
-//	
-//	PacketQueue videoPacketQueue;
-//    PacketQueue audioPacketQueue;
-//    FrameQueue videoFrameQueue;
-//    FrameQueue audioFrameQueue;
-//    MainThreadOptions mainThreadOptions;
-//    
-//	MainThreadHandler* mainThreadHandler = new MainThreadHandler(
-//		videoPacketQueue,
-//	    audioPacketQueue,
-//	    videoFrameQueue,
-//	    audioFrameQueue,
-//	    *formatHandler,
-//	    *audioDevice,
-//	    mediaState,
-//	    mainThreadOptions
-//	);
-//	mainThreadHandler->initialize();
+	// DEBUG
+	bool aborted = false;
 	
+	bool resizerOK = false;
+	int currentPlayerId = -1;
+	
+	AVFrame* frame = av_frame_alloc();
+	if (!frame) {
+        logger(LogLevel::ERR, "Failed to allocate memory for frame.");
+    }
+    
+    AVCodecContext* videoCodecContext = nullptr;
+	PlayerThreadHandler* playerHandler = nullptr;
+	std::unique_ptr<ShouldRenderHandler> renderHandler = nullptr;
 	
 	SDL_Event event;
 	
 	while (isRunning) {
+		if (commandProcessor.activeHandlerId != currentPlayerId) {
+			currentPlayerId = commandProcessor.activeHandlerId;
+			playerHandler = commandProcessor.getPlayerHandlerAt(currentPlayerId);
+		    if (playerHandler) {
+				videoCodecContext = playerHandler->formatHandler->getVideoCodecContext();
+				if (videoCodecContext && !resizerOK) {
+					initRescaler(sdl_manager, videoCodecContext);
+					renderHandler = std::make_unique<ShouldRenderHandler>(playerHandler->videoFrameQueue);
+					resizerOK = true;
+				}
+			}
+		}
+		
 	    while (SDL_PollEvent(&event)) {
-	        if (event.type == SDL_QUIT) {
-	            isRunning = false; // Exit loop on window close
-//	            mainThreadHandler->setAbort(true); 
-	        }
+			switch(event.type) {
+				case SDL_QUIT : 
+					isRunning = false;
+					break;
+				case SDL_USEREVENT : 
+					switch (static_cast<PlayerEvent::Type>(event.user.code)) {
+						case PlayerEvent::SHOULD_RENDER :
+							if (!aborted && resizerOK) {
+								
+								if (!(renderHandler->handleRenderEvent(event.user.data1, frame))) {
+                                    logger(LogLevel::ERR, "Failed to handle SHOULD_RENDER event.");
+                                    aborted = true;
+                                }
+								else {
+									sdl_manager->updateTextureFromFrame(frame);
+									av_frame_unref(frame);
+								}
+								aborted = true;
+							}
+							break;		
+					}
+					break;
+				case SDL_WINDOWEVENT :
+    				if (event.window.event == SDL_WINDOWEVENT_RESIZED) {
+						if (playerHandler && playerHandler->isLoaded) {
+							WindowSize windowSize {event.window.data1, event.window.data2};
+							sdl_manager->resizeWindowFileLoaded(videoCodecContext, &windowSize);
+						}
+					}
+					break;
+				default:
+//			      logger(LogLevel::ERR, "Unhandled Event!");
+			      break;
+			};
 	    }
 	    SDL_Delay(16); // ~60 FPS cap
 	}
 	
 	// Cleanup
-    isRunning = false;
 	
-	rescaler.cleanUp();
+	av_frame_free(&frame);
     socketServer.stop();
-    sdl_manager.cleanUp();
     commandProcessor.abort();
     commandThread.join();
     
+    delete rescaler;
+	delete sdl_manager;
+	    
     SDL_Quit();
 
     return 0;
 }
+
+
+

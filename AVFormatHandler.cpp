@@ -37,6 +37,7 @@ bool AVFormatHandler::openStreams() {
 		this->setAudioSampleRate();
 		this->setAudioChannelLayout();
 		this->setAudioSampleFormat();
+		this->setFrameRate();
 		this->setFrameDuration();
 		this->setDuration();
 		
@@ -111,6 +112,10 @@ void AVFormatHandler::setAudioSampleRate() {
 	this->audioSampleRate = this->audioCodecContext->sample_rate;
 }
 
+void AVFormatHandler::setFrameRate() {
+	this->videoFrameRate = this->videoCodecPar->framerate.num; 
+}
+
 void AVFormatHandler::setFrameDuration() {
 	this->videoFrameDuration = 1. / (double)this->videoCodecPar->framerate.num; 
 }
@@ -120,14 +125,10 @@ void AVFormatHandler::setAudioChannelLayout() {
 }
 
 void AVFormatHandler::setAudioSampleFormat() {
-//	logger(LogLevel::INFO, std::string("sampleFormat ") + std::string(av_get_sample_fmt_name(this->audioCodecContext->sample_fmt)));
 	this->sampleFormat = this->audioCodecContext->sample_fmt;
 }
 
 void AVFormatHandler::setDuration() {
-//	logger(LogLevel::DEBUG, "AVFormat duration" + LogUtils::toString(this->videoStream->duration));
-//	logger(LogLevel::DEBUG, "AVFormat time_base num" + LogUtils::toString(this->videoStream->time_base.num));
-//	logger(LogLevel::DEBUG, "AVFormat time_base num" + LogUtils::toString(this->videoStream->time_base.den));
 	this->duration = (double)this->videoStream->duration * this->videoStream->time_base.num / this->videoStream->time_base.den;
 }
 

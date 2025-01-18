@@ -3,8 +3,8 @@
 
 
 
-CommandProcessor::CommandProcessor(std::atomic<bool>& runningFlag, SocketServer& socketServer, AudioDevice* audioDevice, ImageRescaler& rescaler)
-    : isRunning(runningFlag), audioDevice(audioDevice), socketServer(socketServer), rescaler(rescaler) {
+CommandProcessor::CommandProcessor(std::atomic<bool>& runningFlag, SocketServer& socketServer, AudioDevice* audioDevice)
+    : isRunning(runningFlag), audioDevice(audioDevice), socketServer(socketServer) {
 //    if (!socketServer.start()) {
 //        throw std::runtime_error("Failed to start SocketServer");
 //    }
@@ -63,18 +63,18 @@ void CommandProcessor::handleLoad(const std::string& filePath) {
 			}
 			
 			logger(LogLevel::DEBUG, "CommandProcessor errorState: " + LogUtils::toString(errorState));
+			
+			playerHandler->isLoaded = true;
 
             // Wait until media is ready to play
-            while (playerHandler->mainThreadHandler->mediaState.status != MediaState::ENOUGHDATATOPLAY) {
-                std::this_thread::sleep_for(std::chrono::milliseconds(10));
-            }
+//            while (playerHandler->mainThreadHandler->mediaState.status != MediaState::ENOUGHDATATOPLAY) {
+//                std::this_thread::sleep_for(std::chrono::milliseconds(10));
+//            }
 
-            logger(LogLevel::INFO, "Media ready to play: " + std::string(filePath));
+//            logger(LogLevel::INFO, "Media ready to play: " + std::string(filePath));
             
-            rescaler.initializeSwsContext(playerHandler->formatHandler->getVideoCodecContext());
+//            rescaler.initializeSwsContext(playerHandler->formatHandler->getVideoCodecContext());
 			
-//			currentFrameQueue = &playerHandler.videoFrameQueue;
-
             // If there's an active handler, stop and clean it up
             if (activeHandlerId >= 0 && activeHandlerId != currentHandlerId) {
                 cleanUpOldHandler(activeHandlerId);
@@ -82,8 +82,11 @@ void CommandProcessor::handleLoad(const std::string& filePath) {
             
             // Play the new media
             playerHandler->play();
-
+            
             activeHandlerId = currentHandlerId;
+            
+//            std::this_thread::sleep_for(std::chrono::seconds(8));
+//            playerHandler->seek(8);
 
         } else {
             logger(LogLevel::ERR, "Failed to load file: " + std::string(filePath));
@@ -110,6 +113,16 @@ void CommandProcessor::handleStop() {
         cleanUpOldHandler(activeHandlerId);
         activeHandlerId = -1;
     }
+}
+
+PlayerThreadHandler* CommandProcessor::getPlayerHandlerAt(int position) {
+	std::lock_guard<std::mutex> lock(mutex);
+	logger(LogLevel::DEBUG, "playerHandlers.count(position) : " + LogUtils::toString(playerHandlers.count(position)));
+	if (playerHandlers.count(position) > 0) {
+		logger(LogLevel::DEBUG, "playerHandler found : returning it");
+		return playerHandlers.at(position);
+	}
+	return nullptr;
 }
 
 void CommandProcessor::cleanUpOldHandler(int id) {

@@ -30,6 +30,10 @@ public:
 	
 	AVFormatHandler* formatHandler = nullptr;    
     MainThreadHandler* mainThreadHandler = nullptr;
+    
+    FrameQueue videoFrameQueue;
+    FrameQueue audioFrameQueue;
+    bool isLoaded = false;
 
 private:
 
@@ -37,8 +41,6 @@ private:
 
     PacketQueue videoPacketQueue;
     PacketQueue audioPacketQueue;
-    FrameQueue videoFrameQueue;
-    FrameQueue audioFrameQueue;
     
     MediaState mediaState;
     MainThreadOptions mainThreadOptions;

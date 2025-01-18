@@ -1,17 +1,18 @@
 #pragma once
 
 #include "player_headers.h"
+#include "constants.h"
 
 class ImageRescaler {
 public:
     ImageRescaler();
     ~ImageRescaler();
     
-    void initializeSwsContext(AVCodecContext* codecContext);
-    AVFrame* rescaleFrame(AVFrame* frame, AVCodecContext* codecContext);
+    void initializeSwsContext(AVCodecContext* codecContext, const WindowSize* initial_params);
+    AVFrame* rescaleFrame(AVFrame* frame, const WindowSize& windowSize);
     void cleanUp();
     
 private:
-	SwsContext* swsContext = nullptr;
+	struct SwsContext* swsContext = nullptr;
 	
 };
