@@ -3,9 +3,13 @@
 
 
 
-CommandProcessor::CommandProcessor(std::atomic<bool>& runningFlag, SocketServer& socketServer, AudioDevice* audioDevice)
-    : isRunning(runningFlag), audioDevice(audioDevice), socketServer(socketServer) {
-
+CommandProcessor::CommandProcessor(std::atomic<bool>& runningFlag, AudioDevice* audioDevice, unsigned short socketPort)
+    : isRunning(runningFlag), audioDevice(audioDevice), socketServer(socketPort) {
+		
+	// Initialize TCP server
+    if (!socketServer.start()) {
+        logger(LogLevel::ERR, "Failed to start TCP server");
+    }
 }
 
 CommandProcessor::~CommandProcessor() {

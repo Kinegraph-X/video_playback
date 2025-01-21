@@ -106,6 +106,7 @@ std::string SocketServer::receiveCommand() {
 }
 
 void SocketServer::stop() {
+	std::lock_guard<std::mutex> lock(commandQueueMutex);
 	if (isRunning) {
 		isRunning = false;
 		commandQueueCondition.notify_all();
@@ -116,11 +117,7 @@ void SocketServer::cleanup() {
     logger(LogLevel::DEBUG, "SocketServer::cleanup starting");
 
     // First notify all waiting threads
-    {
-        std::lock_guard<std::mutex> lock(commandQueueMutex);
-        isRunning = false;
-        commandQueueCondition.notify_all();
-    }
+	stop();
 
     // Give threads a moment to see the isRunning flag
     std::this_thread::sleep_for(std::chrono::milliseconds(10));

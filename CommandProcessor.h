@@ -14,7 +14,7 @@
 
 class CommandProcessor {
 public:
-	CommandProcessor(std::atomic<bool>& runningFlag, SocketServer& socketServer, AudioDevice* audioDevice);
+	CommandProcessor(std::atomic<bool>& runningFlag, AudioDevice* audioDevice, unsigned short socketPort);
     ~CommandProcessor();
 	void handleLoad(const std::string& filePath);
     void listeningLoop();
@@ -39,7 +39,7 @@ private:
 	std::mutex mutex;
     
     AudioDevice* audioDevice;
-    SocketServer& socketServer;
+    SocketServer socketServer;
 
     std::unordered_map<int, std::thread> playerThreads;
     

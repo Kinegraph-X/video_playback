@@ -83,16 +83,7 @@ int WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int n
 	
 	std::string filePath = "\\media\\test_video_02.mp4";
 	
-	// Initialize TCP server
-    SocketServer socketServer(socket_params.port);
-    if (!socketServer.start()) {
-        logger(LogLevel::ERR, "Failed to start TCP server");
-        sdl_manager->cleanUp();
-        SDL_Quit();
-        return -1;
-    }
-    
-    CommandProcessor commandProcessor(isRunning, socketServer, sdl_manager->audioDevice);
+    CommandProcessor commandProcessor(isRunning, sdl_manager->audioDevice, socket_params.port);
     std::thread commandThread(&CommandProcessor::listeningLoop, &commandProcessor);
     commandProcessor.handleLoad(filePath);
 	
