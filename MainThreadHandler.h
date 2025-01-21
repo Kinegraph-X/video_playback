@@ -2,7 +2,6 @@
 
 #include <string>
 #include <thread>
-#include "constants.h"
 #include "PacketQueue.h"
 #include "FrameQueue.h"
 #include "AVFormatHandler.h"
@@ -92,7 +91,7 @@ private:
 
     MainThreadOptions& options;
     
-    bool abort = false;
+    std::atomic<bool>  abort;
     mutable std::mutex mutex;
 
 public:

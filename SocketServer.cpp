@@ -3,7 +3,7 @@
 
 
 
-SocketServer::SocketServer(int port) : port(port), serverSocket(-1), isRunning(false) {}
+SocketServer::SocketServer(unsigned short port) : port(port), serverSocket(-1), isRunning(false) {}
 
 SocketServer::~SocketServer() {
     cleanup();
@@ -53,12 +53,12 @@ bool SocketServer::start() {
 
 
 void SocketServer::listenForConnections() {
-	int ret, err;
+	int err;
     while (isRunning) {
         sockaddr_in clientAddr{};
         int clientLen = sizeof(clientAddr);
 
-        int clientSocket = accept(serverSocket, (struct sockaddr*)&clientAddr, &clientLen);
+        SOCKET clientSocket = accept(serverSocket, (struct sockaddr*)&clientAddr, &clientLen);
         if (clientSocket == -1) {
 			err = WSAGetLastError();
 	        if (isRunning) logger(LogLevel::ERR, "Socket accept failed" + LogUtils::toString(err));
@@ -69,7 +69,7 @@ void SocketServer::listenForConnections() {
     }
 }
 
-void SocketServer::handleClient(int clientSocket) {
+void SocketServer::handleClient(SOCKET clientSocket) {
     char buffer[1024];
 
     while (isRunning) {
@@ -105,18 +105,35 @@ std::string SocketServer::receiveCommand() {
     return {};
 }
 
-void SocketServer::cleanup() {
-	int ret, err;
-    if (!isRunning) return;
+void SocketServer::stop() {
+	if (isRunning) {
+		isRunning = false;
+		commandQueueCondition.notify_all();
+	}
+}
 
-    isRunning = false;
-    ret = closesocket(serverSocket);
+void SocketServer::cleanup() {
+    logger(LogLevel::DEBUG, "SocketServer::cleanup starting");
+
+    // First notify all waiting threads
+    {
+        std::lock_guard<std::mutex> lock(commandQueueMutex);
+        isRunning = false;
+        commandQueueCondition.notify_all();
+    }
+
+    // Give threads a moment to see the isRunning flag
+    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+
+    // Then close the server socket
+    int ret = closesocket(serverSocket);
     if (ret == -1) {
-		err = WSAGetLastError();
-        logger(LogLevel::ERR, "Socket close failed" + LogUtils::toString(err));
+        int err = WSAGetLastError();
+        logger(LogLevel::ERR, "Socket close failed: " + LogUtils::toString(err));
     }
 
     if (listeningThread.joinable()) {
+        logger(LogLevel::DEBUG, "Joining listening thread");
         listeningThread.join();
     }
 
@@ -127,6 +144,14 @@ void SocketServer::cleanup() {
     }
 
     clientThreads.clear();
+    
+    // Clear any remaining commands
+    {
+        std::lock_guard<std::mutex> lock(commandQueueMutex);
+        std::queue<std::string>().swap(commandQueue);  // Clear queue
+    }
+
+    logger(LogLevel::DEBUG, "SocketServer::cleanup sequence ended");
 }
 
 void SocketServer::reset() {

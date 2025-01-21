@@ -24,7 +24,7 @@ public:
     void pause();
     void stop();
     void playLooped();
-    void seek(double timestamp);
+    void seek(double position);
     bool checkMinDuration();
     void abort();
     void reset();
@@ -33,8 +33,8 @@ public:
     MainThreadHandler* mainThreadHandler = nullptr;
     
     FrameQueue videoFrameQueue;
-    FrameQueue audioFrameQueue;
     bool isLoaded = false;
+    std::thread playbackThread;
 
 private:
 
@@ -42,11 +42,11 @@ private:
 
     PacketQueue videoPacketQueue;
     PacketQueue audioPacketQueue;
+    FrameQueue audioFrameQueue;
     
     MediaState mediaState;
     MainThreadOptions mainThreadOptions;
     
-    std::thread playbackThread;
     void cleanup();
 };
 

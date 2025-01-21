@@ -53,6 +53,7 @@ bool SDLManager::start(int xpos, int ypos, int width, int height, char title[]) 
 	
 	audioDevice = new AudioDevice();
 	audioDevice->startAudioDevice();
+//	audioDeviceID
 	
 	return true;
 }
@@ -63,21 +64,6 @@ void SDLManager::resizeWindowFileLoaded(AVCodecContext* codecContext, const Wind
 
 void SDLManager::resetRescaler(AVCodecContext* codecContext, const WindowSize* initialParams) {
 	rescaler->initializeSwsContext(codecContext, initialParams);
-}
-
-// Render method: handles drawing video frames
-void SDLManager::render(const uint8_t* y_plane, int y_pitch,
-            const uint8_t* u_plane, int u_pitch,
-            const uint8_t* v_plane, int v_pitch,
-            int video_width, int video_height) {
-
-//	SDL_SetRenderDrawColor;
-//	SDL_RenderClear;
-//	SDL_QueryTexture;
-//	SDL_UpdateYUVTexture;
-//	SDL_RenderCopy;
-//	SDL_RenderPresent;	
-	
 }
 
 void SDLManager::updateTextureFromFrame(AVFrame* frame) {
@@ -94,7 +80,7 @@ void SDLManager::updateTextureFromFrame(AVFrame* frame) {
 
     // SDL_UpdateYUVTexture requires the frame to be in YUV420P format.
     if (frame->format != AV_PIX_FMT_YUV420P || frame->width != windowSize.width || frame->height != windowSize.height) {
-        logger(LogLevel::DEBUG, "Unsupported pixel format. Will rescale...");
+//        logger(LogLevel::DEBUG, "Unsupported pixel format. Will rescale...");
         
 		AVFrame* scaledFrame = rescaler->rescaleFrame(frame, windowSize);
 		
@@ -134,17 +120,17 @@ void SDLManager::reset() {
 	cleanUp();
 }
 
-// Check if the SDLManager is initialized and ready
-bool SDLManager::isReady()  {
-	return true;
-}
-
-// Internal helper to clean up resources
 void SDLManager::cleanUp() {
+	logger(LogLevel::DEBUG, "SDLManager::cleanup started.");
+	delete audioDevice;
+	audioDevice = nullptr;
 	SDL_DestroyTexture(texture);
 	SDL_DestroyRenderer(renderer);
 	SDL_DestroyWindow(window);
+	SDL_Quit();
+	logger(LogLevel::DEBUG, "SDLManager::cleanup ended.");
 }
+
 
 
 

@@ -5,7 +5,6 @@
 #include <atomic>
 #include <string>
 #include "player_headers.h"
-#include "constants.h"
 #include "SocketServer.h"
 #include "PlayerThreadHandler.h"
 #include "SDLAudioDevice.h"
@@ -22,13 +21,14 @@ public:
     
     PlayerThreadHandler* getPlayerHandlerAt(int position);
     
+    void setAbort();
     void abort();
     
     std::unordered_map<int, PlayerThreadHandler*> playerHandlers;
-//    ImageRescaler& rescaler;
     
     int activeHandlerId = -1;
     bool errorState = false;
+    std::atomic<bool>& isRunning;
 
 private:
     void handlePlay();
@@ -37,12 +37,13 @@ private:
     void cleanUpOldHandler(int id);
 	
 	std::mutex mutex;
-    std::atomic<bool>& isRunning;
+    
     AudioDevice* audioDevice;
     SocketServer& socketServer;
 
     std::unordered_map<int, std::thread> playerThreads;
     
     int nextHandlerId = 0;
+    bool aborted = false;
 };
 

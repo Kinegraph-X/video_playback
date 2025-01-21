@@ -17,6 +17,7 @@ bool PacketQueue::put(AVPacket* pkt) {
     // Create a new packet and copy data
     AVPacket* packet = av_packet_alloc();
     if (!packet || av_packet_ref(packet, pkt) < 0) {
+		logger(LogLevel::ERR, "Packet allocation on queue failed : Packet size is : " + LogUtils::toString(pkt->size));
         return false; // Allocation or copying failed
     }
 

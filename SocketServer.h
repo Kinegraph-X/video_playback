@@ -14,18 +14,19 @@
 
 class SocketServer {
 public:
-    SocketServer(int port);
+    SocketServer(unsigned short port);
     ~SocketServer();
 
     bool start();
     std::string receiveCommand();
+    void stop();
     void reset();
 
 private:
     void listenForConnections();
-    void handleClient(int clientSocket);
+    void handleClient(SOCKET clientSocket);
 
-    int serverSocket;
+    SOCKET serverSocket;
     int port;
     std::atomic<bool> isRunning;
 

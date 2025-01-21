@@ -38,7 +38,7 @@ int AudioDevice::setSWRContext(AVFormatHandler* formatContext) {
 	
 	int ret;
 	char errBuf[AV_ERROR_MAX_STRING_SIZE];
-	av_channel_layout_default(&this->stereoChannelLayout, 2);
+	av_channel_layout_default(&this->stereoChannelLayout, this->availableSpec.channels);
 
 	swrContext = swr_alloc();
 	if (!swrContext) {
@@ -78,6 +78,8 @@ int AudioDevice::queueFrame(AVFrame* frame, AVFormatHandler* formatContext) {
     // Resampling often involves digital filters, like low-pass filters,
     // to prevent aliasing or distortion. These filters need to see both "past" and "future" samples
     // to calculate the correct output for the current sample.
+    
+    // this returns an int64_t but other functions expect an int
     int outSampleCount = av_rescale_rnd(
         swr_get_delay(swrContext, this->availableSpec.freq) + frame->nb_samples,
         this->availableSpec.freq,
@@ -158,11 +160,15 @@ void AudioDevice::printStatus() {
 }
 
 void AudioDevice::cleanup() {
+	logger(LogLevel::DEBUG, "AudioDevice::cleanup started.");
     av_channel_layout_uninit(&stereoChannelLayout);
 	swr_free(&swrContext);
+	SDL_PauseAudioDevice(deviceID, 1);
+	SDL_CloseAudioDevice(deviceID);
+	logger(LogLevel::DEBUG, "AudioDevice::cleanup ended.");
 }
 
 void AudioDevice::reset() {
-    cleanup();  // Call cleanup to reset resources
+    cleanup();
 }
 

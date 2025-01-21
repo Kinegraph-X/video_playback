@@ -49,7 +49,7 @@ public:
 //	audioDecoder;
 	
 	int audioSampleRate;
-	int videoFrameRate;
+	double videoFrameRate;
 	double videoFrameDuration;
 	AVChannelLayout* audioChannelLayout;
 	AVSampleFormat sampleFormat;
@@ -70,7 +70,8 @@ private:
     bool openStreams();
     
     int initializeCodecContext(int *stream_idx, AVFormatContext *formatContext, AVCodecContext **codecContext, enum AVMediaType type);
-
+	std::string streamTypeToString(AVMediaType type);
+	
     // Helper methods
     void cleanup(); // Helper for cleanup tasks
 };

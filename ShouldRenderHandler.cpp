@@ -11,8 +11,8 @@ bool ShouldRenderHandler::handleRenderEvent(void* eventData, AVFrame* frame) {
         return false;
     }
 
-    logger(LogLevel::INFO, "Processing SHOULD_RENDER event. PTS: " +
-                           LogUtils::toString(playerEvent->elapsedPlaybackTime));
+//    logger(LogLevel::INFO, "Processing SHOULD_RENDER event. PTS: " +
+//                           LogUtils::toString(playerEvent->elapsedPlaybackTime));
 
     if (!frame) {
         logger(LogLevel::ERR, "Rnrefed frame pass to handleRenderEvent has not been allocated.");
@@ -27,8 +27,8 @@ bool ShouldRenderHandler::handleRenderEvent(void* eventData, AVFrame* frame) {
         return false;
     }
 
-    logger(LogLevel::DEBUG, "Frame retrieved: Width=" + LogUtils::toString(frame->width) +
-                            ", Height=" + LogUtils::toString(frame->height));
+//    logger(LogLevel::DEBUG, "Frame retrieved: Width=" + LogUtils::toString(frame->width) +
+//                            ", Height=" + LogUtils::toString(frame->height));
 
     
     delete playerEvent; // Clean up memory.

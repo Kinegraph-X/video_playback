@@ -3,7 +3,7 @@
 const int MAX_CONNECTIONS = 5;
 const int SAMPLERATE = 48000;
 const int CHANNEL_COUNT = 2;
-const int BUFFER_SIZE = 4096;
+const int BUFFER_SIZE = 512;
 
 struct InitialParams {
 	int xpos;
@@ -19,7 +19,7 @@ struct WindowSize {
 };
 
 struct Socket_Params {
-	int port;
+	unsigned short port;
 };
 
 struct PlayerEvent {

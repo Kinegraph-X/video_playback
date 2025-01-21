@@ -45,8 +45,10 @@ bool PlayerThreadHandler::loadMedia(const std::string& filePath) {
 	else  {
 		playbackThread = std::thread([this]() {
 		    mainThreadHandler->initialize();
-		});// this will loop infinitely
-//		logger(LogLevel::ERR, std::string("mainThreadHandler->initialize didn't returned true"));
+		    logger(LogLevel::DEBUG, "mainThreadHandler initialize returned");
+		});
+		
+//		playbackThread.join();
 		ret = true;
 	}
     
@@ -65,8 +67,8 @@ void PlayerThreadHandler::stop() {
     mainThreadHandler->stop();
 }
 
-void PlayerThreadHandler::seek(double timestamp) {
-    mainThreadHandler->seek(timestamp);
+void PlayerThreadHandler::seek(double position) {
+    mainThreadHandler->seek(position);
 }
 
 void PlayerThreadHandler::playLooped() {
@@ -80,23 +82,25 @@ bool PlayerThreadHandler::checkMinDuration() {
 	return true;
 }
 
-void PlayerThreadHandler::abort() {
-	logger(LogLevel::DEBUG, "PlayerThreadHandler::abort called");
-	
-	mainThreadHandler->reset();
-	
+void PlayerThreadHandler::cleanup() {
+	logger(LogLevel::DEBUG, "PlayerThreadHandler::cleanup started");
+	if (mainThreadHandler) {
+        mainThreadHandler->setAbort(true);
+    }
+	logger(LogLevel::DEBUG, "PlayerThreadHandler::cleanup mainThreadHandler abort set");
 	if (playbackThread.joinable()) {
         playbackThread.join();
     }
-	delete mainThreadHandler;
-}
-
-void PlayerThreadHandler::cleanup() {
+    logger(LogLevel::DEBUG, "PlayerThreadHandler::cleanup playbackThread ended");
+    
 	delete formatHandler;
+	formatHandler = nullptr;
 	delete mainThreadHandler;
-    stop();
+	mainThreadHandler = nullptr;
+	
+	logger(LogLevel::DEBUG, "PlayerThreadHandler::cleanup complete");
 }
 
 void PlayerThreadHandler::reset() {
-    cleanup();  // Call cleanup to reset resources
+    cleanup();
 }

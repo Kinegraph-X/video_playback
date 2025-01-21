@@ -48,7 +48,10 @@ public:
 	void setAbort(bool value);
 	bool isAborted();
     void reset();
+    
+    bool exhausted = false;
 
 private:
     void cleanup();
+    void debugPacket(const AVPacket* pkt);
 };

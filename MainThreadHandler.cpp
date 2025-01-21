@@ -108,17 +108,20 @@ bool MainThreadHandler::initialize() {
 void MainThreadHandler::setMinAudioDeviceQueueSize() {
 	int multiplicator = 2;
 	
-	int minQueueSize = (formatHandler.audioSampleRate 
-									* av_get_bytes_per_sample(formatHandler.sampleFormat)
-									/ formatHandler.videoCodecPar->framerate.num); // exactly one video frame
-	options.minAudioDeviceQueueSize = minQueueSize;
+	double minQueueSize = std::ceil(formatHandler.audioSampleRate 
+									/ formatHandler.videoFrameRate); // upper closest than exactly one video frame
+	options.minAudioDeviceQueueSize = static_cast<size_t>(std::ceil(minQueueSize));
 	
 	// Adapt in case the audio driver is refusing the buffer size we requested
 	// (prioritize powers of 2 as most soundcards impose these increments)
 	while (options.minAudioDeviceQueueSize < audioDevice->availableSpec.samples) {
-		options.minAudioDeviceQueueSize = minQueueSize * multiplicator;
+		options.minAudioDeviceQueueSize = static_cast<size_t>(std::ceil(minQueueSize)) * multiplicator;
 		multiplicator = multiplicator << 1;
 	}
+	options.minAudioDeviceQueueSize = options.minAudioDeviceQueueSize * av_get_bytes_per_sample(formatHandler.sampleFormat);
+	
+	logger(LogLevel::INFO, "Defined minAudioDeviceQueueSize to : " + LogUtils::toString(options.minAudioDeviceQueueSize));
+	logger(LogLevel::INFO, "minAudioDeviceQueueSize duration : " + LogUtils::toString((double)options.minAudioDeviceQueueSize / (formatHandler.audioSampleRate * av_get_bytes_per_sample(formatHandler.sampleFormat))));
 }
 
 
@@ -142,13 +145,19 @@ void MainThreadHandler::mainLoop() {
 				mediaState.status = MediaState::PAUSED;
 				continue;
 			}
-		
+			
 			if (mediaState.status == MediaState::PLAYING
 					&& currentTimestamp - lastFrameTimestamp >= frameDuration) {
-				
-				if (enqueuedAudioDuration < currentTimestamp + frameDuration) {
+						
+				if (enqueuedAudioDuration < elapsedPlayingTime + frameDuration) {
 					manageAudioQueue();
 				}
+				
+//				if (elapsedPlayingTime >= formatHandler.duration - frameDuration) {
+//			        // We're near the end, switch to a transitional state
+//			        mediaState.status = MediaState::ENDING;
+//			        continue;
+//			    }
 			
 				if (pauseRequested) {
 					SDL_PauseAudioDevice(audioDevice->deviceID, 1);
@@ -159,42 +168,56 @@ void MainThreadHandler::mainLoop() {
 				
 				SDL_PauseAudioDevice(audioDevice->deviceID, 0);
 				
-				SDL_PushEvent(&newEvent(PlayerEvent::SHOULD_RENDER));
-				logger(LogLevel::INFO, std::string("elapsed time is ") + LogUtils::toString(elapsedPlayingTime));
-	//			logger(LogLevel::INFO, std::string("duration is ") + LogUtils::toString(formatHandler.duration));
+				// Guard against race conditions
+				if (!videoFrameQueue.isEmpty()) {
+					SDL_PushEvent(&newEvent(PlayerEvent::SHOULD_RENDER));
+				}
+//				logger(LogLevel::INFO, std::string("elapsed time is ") + LogUtils::toString(elapsedPlayingTime));
 				
 				lastFrameTimestamp += frameDuration;
 			
-				if (elapsedPlayingTime > 5.) {
-					logger(LogLevel::DEBUG, std::string("Playback stopped on debug condition") + LogUtils::toString(mediaState.status));
-					demuxThreadHandler->stopThread();
-					decodeThreadHandler->stopThread();
-					playRequested = false;
-					pauseRequested = true;
-					mediaState.status = MediaState::PAUSED;
-	//				break;
-				}
+//				if (elapsedPlayingTime > 5.) {
+//					logger(LogLevel::DEBUG, std::string("Playback stopped on debug condition") + LogUtils::toString(mediaState.status));
+//					demuxThreadHandler->stopThread();
+//					decodeThreadHandler->stopThread();
+//					playRequested = false;
+//					pauseRequested = true;
+//					mediaState.status = MediaState::PAUSED;
+//					break;
+//				}
 			}
-			// Due to multithreading, the loop is started before the file is completely open => ensure we have a duration
-			if (formatHandler.duration != 0. && elapsedPlayingTime >= formatHandler.duration) {
+			
+			if (elapsedPlayingTime >= formatHandler.duration
+					&& videoFrameQueue.getSize() == 0
+					&& audioFrameQueue.getSize() == 0) {
 				logger(LogLevel::INFO, std::string("Playback stopped on duration exceeded : ") + LogUtils::toString(formatHandler.duration));
-				mediaState.status = MediaState::ENDED;
+				
+				SDL_PauseAudioDevice(audioDevice->deviceID, 1);
 				demuxThreadHandler->stopThread();
 				decodeThreadHandler->stopThread();
+				playRequested = false;
+				pauseRequested = true;
+				mediaState.status = MediaState::ENDED;
+				
 				break;
 			}
-		} // Unlock the mutex here
+			
+		
 
 		updateTiming();
 		manageStatus();
 		
+		} // We unlock the mutex here
+		
 		std::this_thread::sleep_for(std::chrono::microseconds(10));
 	}
-	logger(LogLevel::DEBUG, std::string("Playback exited its infinite loop"));
+	logger(LogLevel::DEBUG, std::string("MainThreadHandler : Playback exited its infinite loop"));
 }
 
 void MainThreadHandler::manageStatus() {
-	if (mediaState.status == MediaState::UNDEFINED || mediaState.status == MediaState::ENDED) {
+	if (mediaState.status == MediaState::UNDEFINED
+//		|| mediaState.status == MediaState::ENDING 
+		|| mediaState.status == MediaState::ENDED) {
 		return;
 	}
 	
@@ -223,14 +246,13 @@ void MainThreadHandler::manageStatus() {
 		}
 	}
 	else if (demuxThreadHandler->exhausted) {
-		logger(LogLevel::DEBUG, "The Demuxer has exhausted the file.");
+//		logger(LogLevel::DEBUG, "The Demuxer has exhausted the file.");
 	}
 	
 	if (seekRequested) {
-		if ((videoPacketQueue.getSize() >= options.seekMinVideoPacketQueueSize
-				&& videoFrameQueue.getSize() < options.seekMinVideoFrameQueueSize)
-				|| (audioPacketQueue.getSize() >= options.seekMinAudioPacketQueueSize
-					&& audioFrameQueue.getSize() < options.seekMinAudioFrameQueueSize)
+		if (!decodeThreadHandler->exhausted
+				&&(videoFrameQueue.getSize() < options.seekMinVideoFrameQueueSize
+					|| audioFrameQueue.getSize() < options.seekMinAudioFrameQueueSize)
 			) {
 			if (mediaState.status != MediaState::BUFFERING)
 				logStatus(MediaState::BUFFERING, "Decoder");
@@ -246,10 +268,9 @@ void MainThreadHandler::manageStatus() {
 		}
 	}
 	else {
-		if ((videoPacketQueue.getSize() >= options.minVideoPacketQueueSize
-				&& videoFrameQueue.getSize() < options.minVideoFrameQueueSize)
-				|| (audioPacketQueue.getSize() >= options.minAudioPacketQueueSize
-					&& audioFrameQueue.getSize() < options.minAudioFrameQueueSize)
+		if (!decodeThreadHandler->exhausted
+				&& (videoFrameQueue.getSize() < options.minVideoFrameQueueSize
+					|| audioFrameQueue.getSize() < options.minAudioFrameQueueSize)
 			) {
 			if (mediaState.status != MediaState::BUFFERING)
 				logStatus(MediaState::BUFFERING, "Decoder");
@@ -259,9 +280,10 @@ void MainThreadHandler::manageStatus() {
 		}
 		else if (playRequested) {
 	//		logger(LogLevel::DEBUG, "tEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEst for playbackRequested");
-			if (mediaState.status != MediaState::PLAYING)
+			if (mediaState.status != MediaState::PLAYING && mediaState.status != MediaState::ENDING) {
 				logStatus(mediaState.status, "Decoder");
-			mediaState.status = MediaState::PLAYING;
+				mediaState.status = MediaState::PLAYING;
+			}
 		}
 		else {
 	//		logger(LogLevel::DEBUG, "tEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEst for ENOUGHDATATOPLAY");
@@ -309,7 +331,7 @@ void MainThreadHandler::manageAudioQueue() {
     enqueuedAudioDuration += queuedTime;
     if (shouldLog) {
 //		logger(LogLevel::INFO, std::string("audio device needs BUFFERING"));
-//    	logger(LogLevel::INFO, std::string("Enqueued audio time is ") + LogUtils::toString(enqueuedAudioDuration));
+//    	logger(LogLevel::DEBUG, std::string("Enqueued audio time is ") + LogUtils::toString(enqueuedAudioDuration));
 //    	audioDevice->printStatus();
     }
 }
@@ -326,18 +348,6 @@ SDL_Event MainThreadHandler::newEvent(PlayerEvent::Type type) {
 }
 
 
-void MainThreadHandler::setAbort(bool value) {
-	std::lock_guard<std::mutex> lock(mutex);
-    abort = value;
-    resetQueues();
-    videoPacketQueue.setAbort(value);
-    audioPacketQueue.setAbort(value);
-    demuxThreadHandler->setAbort(value);
-    decodeThreadHandler->setAbort(value);
-}
-
-bool MainThreadHandler::isAborted() const { return abort; }
-
 // Create threads for video and audio
 void MainThreadHandler::createThreads() {
 	
@@ -346,13 +356,6 @@ void MainThreadHandler::createThreads() {
     
 	demuxThread = std::thread(MainThreadHandlerHelpers::demuxThreadFunction, &demuxThreadData);
 	decodeThread = std::thread(MainThreadHandlerHelpers::decodeThreadFunction, &decodeThreadData);
-}
-
-void MainThreadHandler::resetQueues() {
-	videoPacketQueue.flush();
-	audioPacketQueue.flush();
-	videoFrameQueue.flush();
-	audioPacketQueue.flush();
 }
 
 void MainThreadHandler::play() {
@@ -370,16 +373,6 @@ void MainThreadHandler::pause() {
 	std::lock_guard<std::mutex> lock(mutex);
 	pauseRequested = true;
 	stopRequested = false;
-}
-
-void MainThreadHandler::stop() {
-	std::lock_guard<std::mutex> lock(mutex);
-	playRequested = false;
-	stopRequested = true;
-	pauseRequested = false;
-	demuxThreadHandler->stopThread();
-	decodeThreadHandler->stopThread();
-	resetQueues();
 }
 
 /**
@@ -412,6 +405,82 @@ void MainThreadHandler::seek(double position) {
 	logger(LogLevel::DEBUG, "time needed for seeking : " + LogUtils::toString((double)SDL_GetPerformanceCounter() / SDL_GetPerformanceFrequency() - now));
 }
 
+void MainThreadHandler::stop() {
+	std::lock_guard<std::mutex> lock(mutex);
+	playRequested = false;
+	stopRequested = true;
+	pauseRequested = false;
+	demuxThreadHandler->stopThread();
+	decodeThreadHandler->stopThread();
+	decodeThreadHandler->exhausted = false;
+	demuxThreadHandler->exhausted = false;
+	resetQueues();
+}
+
+void MainThreadHandler::resetQueues() {
+	videoPacketQueue.flush();
+	audioPacketQueue.flush();
+	videoFrameQueue.flush();
+	audioPacketQueue.flush();
+}
+
+void MainThreadHandler::setAbort(bool value) {
+	abort.store(value, std::memory_order_release);
+	
+	// Give mainLoop a chance to exit
+    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+	
+//	std::lock_guard<std::mutex> lock(mutex);
+	std::unique_lock<std::mutex> lock(mutex);
+
+	logger(LogLevel::DEBUG, "MainThreadHandler aborting.");
+    
+    // First set abort flags on queues and handlers
+    videoPacketQueue.setAbort(value);
+    audioPacketQueue.setAbort(value);
+    logger(LogLevel::DEBUG, "MainThreadHandler abort set on queues.");
+    
+    demuxThreadHandler->setAbort(value);
+    decodeThreadHandler->setAbort(value);
+    
+    logger(LogLevel::DEBUG, "MainThreadHandler abort set on threads.");
+    // Then stop threads (which should now exit quickly due to abort flags)
+    demuxThreadHandler->stopThread();
+    decodeThreadHandler->stopThread();
+    resetQueues();
+}
+
+bool MainThreadHandler::isAborted() const { return abort.load(std::memory_order_acquire); }
+
+// Clean-up resources if needed
+void MainThreadHandler::cleanup() {
+    logger(LogLevel::DEBUG, "MainThreadHandler::cleanup started.");
+    setAbort(true);
+    stop();
+
+    if (demuxThreadHandler) {
+        if (demuxThread.joinable()) {
+            demuxThread.join();
+        }
+        delete demuxThreadHandler;
+        demuxThreadHandler = nullptr;
+    }
+
+    if (decodeThreadHandler) {
+        if (decodeThread.joinable()) {
+            decodeThread.join();
+        }
+        delete decodeThreadHandler;
+        decodeThreadHandler = nullptr;
+    }
+    
+    logger(LogLevel::DEBUG, "MainThreadHandler::cleanup completed.");
+}
+
+void MainThreadHandler::reset() {
+    cleanup();  // Call cleanup to reset resources
+}
+
 void MainThreadHandler::logStatus(MediaState::State status, std::string origin) {
 	if (status == MediaState::BUFFERING) {
 		logger(LogLevel::DEBUG, std::string("player status changed to buffering...") + std::string(" due to ") + origin + std::string(" state management"));
@@ -420,37 +489,6 @@ void MainThreadHandler::logStatus(MediaState::State status, std::string origin) 
 		logger(LogLevel::DEBUG, std::string("player status changed to ") + LogUtils::toString(status) + std::string(" due to ") + origin + std::string(" state management"));
 	}
 }
-
-// Clean-up resources if needed
-void MainThreadHandler::cleanup() {
-    logger(LogLevel::INFO, "Shutting down threads...");
-    setAbort(true);
-    stop();
-
-    if (demuxThreadHandler) {
-        delete demuxThreadHandler;
-        demuxThreadHandler = nullptr;
-        if (demuxThread.joinable()) {
-            demuxThread.join();
-        }
-    }
-
-    if (decodeThreadHandler) {
-        delete decodeThreadHandler;
-        decodeThreadHandler = nullptr;
-        if (decodeThread.joinable()) {
-            decodeThread.join();
-        }
-    }
-    
-    logger(LogLevel::INFO, "Cleanup completed.");
-}
-
-void MainThreadHandler::reset() {
-    cleanup();  // Call cleanup to reset resources
-}
-
-
 
 
 

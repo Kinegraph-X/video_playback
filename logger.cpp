@@ -86,6 +86,7 @@ namespace LogUtils {
     template std::string toString<int>(const int&);
     template std::string toString<unsigned short>(const unsigned short&);
     template std::string toString<bool>(const bool&);
+    template std::string toString<std::atomic<bool>>(const std::atomic<bool>&);
     template std::string toString<uint8_t>(const uint8_t&);
     template std::string toString<int64_t>(const int64_t&);
     template std::string toString<std::string>(const std::string&);

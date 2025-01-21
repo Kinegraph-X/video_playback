@@ -14,6 +14,7 @@ private:
     PacketQueue& audioQueue;
     std::atomic<bool> shouldRun{false};
     AVPacket* packet;
+    AVPacket* emptyPacket;
     
     mutable std::mutex threadMutex;
     std::condition_variable threadCondition;
@@ -44,5 +45,6 @@ public:
 
 private:
     void triagePacket(AVPacket* packet);
+    void initEmptyPacket(AVPacket* packet, int lastStreamIndexSeen);
     void cleanup();
 };

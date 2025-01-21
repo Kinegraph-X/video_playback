@@ -86,6 +86,12 @@ int AVFormatHandler::initializeCodecContext(int *stream_idx, AVFormatContext *fo
     else {
 		stream = formatContext->streams[stream_index];
 		decoder = avcodec_find_decoder(stream->codecpar->codec_id);
+		if (decoder->capabilities & AV_CODEC_CAP_DELAY) {
+		    logger(LogLevel::DEBUG, streamTypeToString(type) + " : The codec supports delayed frames");
+		}
+		else {
+			logger(LogLevel::DEBUG, streamTypeToString(type) + " : The codec DOES NOT supports delayed frames");
+		}
 		*codecContext = avcodec_alloc_context3(decoder);
 		if (!decoder) {
 			logger(LogLevel::ERR, std::string("Failed find a decoder"));
@@ -113,11 +119,13 @@ void AVFormatHandler::setAudioSampleRate() {
 }
 
 void AVFormatHandler::setFrameRate() {
-	this->videoFrameRate = this->videoCodecPar->framerate.num; 
+	this->videoFrameRate = (double)this->videoCodecPar->framerate.num / this->videoCodecPar->framerate.den;
+	logger(LogLevel::DEBUG, "AVFormatContext : video framerate : " + LogUtils::toString(this->videoFrameRate));
 }
 
 void AVFormatHandler::setFrameDuration() {
-	this->videoFrameDuration = 1. / (double)this->videoCodecPar->framerate.num; 
+	this->videoFrameDuration = 1. / this->videoFrameRate;
+	logger(LogLevel::DEBUG, "AVFormatContext : video frame duration : " + LogUtils::toString(this->videoFrameDuration));
 }
 
 void AVFormatHandler::setAudioChannelLayout() {
@@ -143,7 +151,16 @@ int AVFormatHandler::getAudioStreamIndex() {return audioStreamIndex;};
 //AVRational AVFormatHandler::getVideoTimeBase() {};
 //AVRational AVFormatHandler::getAudioTimeBase() {};
 
-
+std::string AVFormatHandler::streamTypeToString(AVMediaType type) {
+	switch(type) {
+		case AVMEDIA_TYPE_VIDEO : 
+			return "Video";
+		case AVMEDIA_TYPE_AUDIO : 
+			return "Audio";
+		default:
+			return "Unknown";
+	}
+}
 
 
 // Reset and release all resources
@@ -153,20 +170,24 @@ void AVFormatHandler::reset() {
 
 // Helper methods
 void AVFormatHandler::cleanup() {
+	logger(LogLevel::DEBUG, "AVFormatHandler::cleanup called");
 	if (videoCodecContext) {
 		avcodec_free_context(&videoCodecContext);
 		// videoCodecContext is now nullptr
 	}
+	logger(LogLevel::DEBUG, "AVFormatHandler::cleanup videoCodecContext freed");
 	
 	if (audioCodecContext) {
 		avcodec_free_context(&audioCodecContext);
 		// audioCodecContext is now nullptr
 	}
+	logger(LogLevel::DEBUG, "AVFormatHandler::cleanup audioCodecContext freed");
 	
 	if (formatContext) {
 		avformat_close_input(&formatContext);
 		// formatContext is now nullptr
 	}
+	logger(LogLevel::DEBUG, "AVFormatHandler::cleanup formatContext closed");
 	
 	// Reset other pointers
 	videoStream = nullptr;
@@ -179,11 +200,13 @@ void AVFormatHandler::cleanup() {
 	videoStreamIndex = -1;
 	audioStreamIndex = -1;
 	audioSampleRate = 0;
-	videoFrameRate = 0;
-	videoFrameDuration = 0;
+	videoFrameRate = 0.;
+	videoFrameDuration = 0.;
 	sampleFormat = AV_SAMPLE_FMT_NONE;
 	duration = 0;
 	initialized = false;
+	
+	logger(LogLevel::DEBUG, "AVFormatHandler::cleanup sequence ended");
 }
 
 

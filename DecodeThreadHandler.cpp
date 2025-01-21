@@ -35,7 +35,6 @@ void DecodeThreadHandler::decodePackets(size_t maxVideoQueueSize, size_t maxAudi
 		if (isAborted()) {
 	        break;
 	    }
-//	    lock.unlock();
 	    
 		decodeVideoPackets(maxVideoQueueSize, lock);
 		decodeAudioPackets(maxAudioQueueSize, lock);
@@ -53,19 +52,30 @@ void DecodeThreadHandler::decodePackets(size_t maxVideoQueueSize, size_t maxAudi
 void DecodeThreadHandler::decodeVideoPackets(size_t maxQueueSize, std::unique_lock<std::mutex>& lock) {
 	int ret;
 	
-		if (videoPacketQueue.getSize() > 0 
-			&& videoQueue.getSize() < maxQueueSize) {
+	if (videoPacketQueue.getSize() > 0 
+		&& videoQueue.getSize() < maxQueueSize) {
 
 		lock.unlock();
-						
-		videoPacketQueue.get(packet);
+//		logger(LogLevel::DEBUG, "DECODE THREAD accessing the queue");
+		if (!videoPacketQueue.get(packet)) {
+			av_packet_unref(packet);
+			return;
+		}
+		if (packet->size == 0) {
+			packet->data = NULL;
+			logger(LogLevel::DEBUG, "Found empty video packet, looks like end of file");
+		}
+//		logger(LogLevel::DEBUG, "DECODE THREAD accessed the queue" + LogUtils::toString(packet->pts));
 		char errBuf[AV_ERROR_MAX_STRING_SIZE];
 		
 	    ret = avcodec_send_packet(formatHandler.getVideoCodecContext(), packet);
 	    if (ret < 0) {
 			const char* errStr = av_make_error_string(errBuf, AV_ERROR_MAX_STRING_SIZE, ret);
 			logger(LogLevel::ERR, std::string("Error submitting a video packet for decoding : ") + std::string(errStr));
+			debugPacket(packet);
+			std::this_thread::sleep_for(std::chrono::milliseconds(2));
 			av_packet_unref(packet);
+//			lock.lock();
 			return;
 	    }
 	 
@@ -78,6 +88,8 @@ void DecodeThreadHandler::decodeVideoPackets(size_t maxQueueSize, std::unique_lo
 	        else if (ret == AVERROR_EOF) {
 				const char* errStr = av_make_error_string(errBuf, AV_ERROR_MAX_STRING_SIZE, ret);
 	            logger(LogLevel::ERR, std::string("We have reached the end of the file (video decode part) : ") + std::string(errStr));
+	            setAbort(true);
+	            exhausted = true;
 	            continue;
 			}
 	        else if (ret < 0) {
@@ -88,15 +100,17 @@ void DecodeThreadHandler::decodeVideoPackets(size_t maxQueueSize, std::unique_lo
 	 		
 //	 		logger(LogLevel::INFO, std::string("video frame pts : ") + LogUtils::toString(frame->best_effort_timestamp));
 	 		videoQueue.put(frame);
+	 		av_frame_unref(frame);
 	 	}
+//	 	logger(LogLevel::DEBUG, "DECODE THREAD returned a frame" + LogUtils::toString(frame->pts));
 	 	
 	 	av_packet_unref(packet);
 		av_frame_unref(frame);
 		
 		lock.lock();
     }
-    else if (shouldRun.load(std::memory_order_acquire) && videoPacketQueue.isEmpty()) {
-		logger(LogLevel::INFO, std::string("decode Thread Self-Stopped (video packetQueue is empty)"));
+    else if (shouldRun.load(std::memory_order_acquire) && videoPacketQueue.isEmpty() && audioPacketQueue.isEmpty()) {
+		logger(LogLevel::DEBUG, std::string("decode Thread Self-Stopped (both packetQueues are empty)"));
 		logger(LogLevel::INFO, std::string("audioFrameQueue size : ") + LogUtils::toString(audioQueue.getSize()));
 		logger(LogLevel::INFO, std::string("videoFrameQueue size : ") + LogUtils::toString(videoQueue.getSize()));
 		shouldRun = false;
@@ -120,20 +134,29 @@ void DecodeThreadHandler::decodeVideoPackets(size_t maxQueueSize, std::unique_lo
 void DecodeThreadHandler::decodeAudioPackets(size_t maxQueueSize, std::unique_lock<std::mutex>& lock) {
 	int ret;
 	
-//	if (shouldRun.load(std::memory_order_acquire)
-		if (audioPacketQueue.getSize() > 0 
-			&& audioQueue.getSize() < maxQueueSize) {
+	if (audioPacketQueue.getSize() > 0 
+		&& audioQueue.getSize() < maxQueueSize) {
 				
 		lock.unlock();
 		
-		audioPacketQueue.get(packet);
+		if (!audioPacketQueue.get(packet)) {
+			av_packet_unref(packet);
+			return;
+		}
+		if (packet->size == 0) {
+			packet->data = NULL;
+			logger(LogLevel::DEBUG, "Found empty audio packet, looks like end of file");
+		}
 		char errBuf[AV_ERROR_MAX_STRING_SIZE];
 		
 	    ret = avcodec_send_packet(formatHandler.getAudioCodecContext(), packet);
 	    if (ret < 0) {
 			const char* errStr = av_make_error_string(errBuf, AV_ERROR_MAX_STRING_SIZE, ret);
 			logger(LogLevel::ERR, std::string("Error submitting an audio packet for decoding : ") + std::string(errStr));
+			debugPacket(packet);
+			std::this_thread::sleep_for(std::chrono::milliseconds(2));
 			av_packet_unref(packet);
+//			lock.lock();
 			return;
 	    }
 	 
@@ -146,6 +169,8 @@ void DecodeThreadHandler::decodeAudioPackets(size_t maxQueueSize, std::unique_lo
 	        else if (ret == AVERROR_EOF) {
 				const char* errStr = av_make_error_string(errBuf, AV_ERROR_MAX_STRING_SIZE, ret);
 	            logger(LogLevel::ERR, std::string("We have reached the end of the file (audio decode part) : ") + std::string(errStr));
+	            setAbort(true);
+	            exhausted = true;
 	            continue;
 			}
 	        else if (ret < 0) {
@@ -157,14 +182,15 @@ void DecodeThreadHandler::decodeAudioPackets(size_t maxQueueSize, std::unique_lo
 //			logger(LogLevel::INFO, std::string("audio frame pts : ") + LogUtils::toString(frame->best_effort_timestamp));
 	 		
 	 		audioQueue.put(frame);
+	 		av_frame_unref(frame);
 	 	}
 	 	av_packet_unref(packet);
  		av_frame_unref(frame);
  		
  		lock.lock();
 	}
-	else if (shouldRun.load(std::memory_order_acquire) && audioPacketQueue.isEmpty()) {
-		logger(LogLevel::INFO, std::string("decode Thread Self-Stopped (audio packetQueue is empty)"));
+	else if (shouldRun.load(std::memory_order_acquire) && audioPacketQueue.isEmpty() && videoPacketQueue.isEmpty()) {
+		logger(LogLevel::DEBUG, std::string("decode Thread Self-Stopped (both packetQueue are empty)"));
 		logger(LogLevel::INFO, std::string("audioFrameQueue size : ") + LogUtils::toString(audioQueue.getSize()));
 		logger(LogLevel::INFO, std::string("videoFrameQueue size : ") + LogUtils::toString(videoQueue.getSize()));
 		shouldRun = false;
@@ -185,15 +211,33 @@ void DecodeThreadHandler::decodeAudioPackets(size_t maxQueueSize, std::unique_lo
 	}
 };
 
+//void DecodeThreadHandler::stopThread() {
+//	std::unique_lock<std::mutex> lock(threadMutex);
+//	if (!isAborted()) {
+//	    shouldRun.store(false, std::memory_order_release);
+//	    threadCondition.notify_all();
+//	    // Wait until the current iteration ends
+//	    threadCondition.wait(lock, [this]() { return !shouldRun.load(std::memory_order_acquire); });
+//    }
+//	logger(LogLevel::DEBUG, std::string("Decode Thread Stop called"));
+//};
+
 void DecodeThreadHandler::stopThread() {
-	std::unique_lock<std::mutex> lock(threadMutex);
-    shouldRun.store(false, std::memory_order_release);
-    threadCondition.notify_all();
-    // Wait until the current iteration ends
-    threadCondition.wait(lock, [this]() { return !shouldRun.load(std::memory_order_acquire); });
-	
-	logger(LogLevel::DEBUG, std::string("Decode Thread Stop called"));
-};
+//    logger(LogLevel::DEBUG, "DecodeThread::stopThread - Starting");
+    std::unique_lock<std::mutex> lock(threadMutex);
+    if (!isAborted()) {
+//        logger(LogLevel::DEBUG, "DecodeThread::stopThread - Setting shouldRun to false");
+        shouldRun.store(false, std::memory_order_release);
+//        logger(LogLevel::DEBUG, "DecodeThread::stopThread - Notifying thread to check shouldRun");
+        threadCondition.notify_all();
+//        logger(LogLevel::DEBUG, "DecodeThread::stopThread - Waiting for thread to acknowledge shouldRun=false");
+        threadCondition.wait(lock, [this]() { return !shouldRun.load(std::memory_order_acquire); });
+//        logger(LogLevel::DEBUG, "DecodeThread::stopThread - Thread acknowledged");
+    } else {
+//        logger(LogLevel::DEBUG, "DecodeThread::stopThread - Thread already aborted");
+    }
+    logger(LogLevel::DEBUG, "DecodeThread::stopThread - Completed");
+}
 
 void DecodeThreadHandler::wakeUpThread() {
 	std::unique_lock<std::mutex> lock(threadMutex);
@@ -206,7 +250,7 @@ void DecodeThreadHandler::setAbort(bool value) {
 	std::lock_guard<std::mutex> lock(threadMutex);
 	abort.store(value, std::memory_order_release);;
 	threadCondition.notify_all();
-	logger(LogLevel::DEBUG, "DecodeThreadHandler::setAbort CALLED");
+	logger(LogLevel::DEBUG, "DecodeThreadHandler::setAbort called");
 }
 
 bool DecodeThreadHandler::isAborted() {
@@ -214,11 +258,51 @@ bool DecodeThreadHandler::isAborted() {
 }
 
 void DecodeThreadHandler::cleanup() {
+	logger(LogLevel::DEBUG, "DecodeThreadHandler::cleanup started.");
     stopThread();
 	av_packet_free(&packet);
 	av_frame_free(&frame);
+	logger(LogLevel::DEBUG, "DecodeThreadHandler::cleanup ended.");
 }
 
 void DecodeThreadHandler::reset() {
     cleanup();  // Call cleanup to reset resources
 }
+
+std::string packetFlagsToString(int flags) {
+    std::string result;
+    if (flags & AV_PKT_FLAG_KEY) result += "KEY ";
+    if (flags & AV_PKT_FLAG_CORRUPT) result += "CORRUPT ";
+    return result.empty() ? "NONE" : result;
+}
+
+void DecodeThreadHandler::debugPacket(const AVPacket *pkt) {
+
+    logger(LogLevel::DEBUG, "Packet Debug Info:");
+
+    // Packet data and size
+    std::string hasData = pkt->data ? "Non-NULL" : "NULL";
+    logger(LogLevel::DEBUG, "  pkt->data: " + hasData);
+    logger(LogLevel::DEBUG, "  pkt->size: " + LogUtils::toString(pkt->size));
+
+    // Stream index
+    logger(LogLevel::DEBUG, "  pkt->stream_index: " + LogUtils::toString(pkt->stream_index));
+
+    // Presentation timestamp (PTS)
+    logger(LogLevel::DEBUG, "  pkt->pts: " + LogUtils::toString(pkt->pts));
+
+    // Decompression timestamp (DTS)
+    logger(LogLevel::DEBUG, "  pkt->dts: " + LogUtils::toString(pkt->dts));
+
+    // Duration
+    logger(LogLevel::DEBUG, "  pkt->duration: " + LogUtils::toString(pkt->duration));
+
+    // Flags
+    logger(LogLevel::DEBUG, "  pkt->flags: " + packetFlagsToString(pkt->flags));
+
+    // Position in the stream (file position)
+    logger(LogLevel::DEBUG, "  pkt->pos: " + LogUtils::toString(pkt->pos));
+
+}
+
+

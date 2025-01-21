@@ -5,23 +5,25 @@
 
 CommandProcessor::CommandProcessor(std::atomic<bool>& runningFlag, SocketServer& socketServer, AudioDevice* audioDevice)
     : isRunning(runningFlag), audioDevice(audioDevice), socketServer(socketServer) {
-//    if (!socketServer.start()) {
-//        throw std::runtime_error("Failed to start SocketServer");
-//    }
+
 }
 
 CommandProcessor::~CommandProcessor() {
-    abort();
+    setAbort();
 }
 
 void CommandProcessor::listeningLoop() {
-    while (isRunning) {
+    while (isRunning.load(std::memory_order_acquire)) {
+//		if (activeHandlerId != -1) {
+//			logger(LogLevel::DEBUG, "STATE of playerThread : " + LogUtils::toString(playerThreads[activeHandlerId].joinable()));
+//			logger(LogLevel::DEBUG, "STATE of playbackThread : " + LogUtils::toString(playerHandlers[activeHandlerId]->playbackThread.joinable()));
+//		}
         std::string command = socketServer.receiveCommand();
         if (command.empty()) {
 			std::this_thread::sleep_for(std::chrono::milliseconds(1));
 			continue;
 		}
-
+		
         if (command.rfind("LOAD:", 0)) {
             std::string filePath = command.substr(5);
             handleLoad(filePath);
@@ -33,8 +35,10 @@ void CommandProcessor::listeningLoop() {
             handleStop();
         }
         
-        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
     }
+    
+    logger(LogLevel::DEBUG, std::string("CommandProcessor::listeningLoop exited"));
 }
 
 void CommandProcessor::handleLoad(const std::string& filePath) {
@@ -44,13 +48,11 @@ void CommandProcessor::handleLoad(const std::string& filePath) {
 		return;
 	}
 	
-    // Create a new PlayerThreadHandler
     PlayerThreadHandler* playerHandler = new PlayerThreadHandler(audioDevice);
     int currentHandlerId = nextHandlerId++;
     playerHandlers[currentHandlerId] = playerHandler;
 
     // Start a thread to load media and wait for it to be ready
-    // , currentFrameQueue
     playerThreads[currentHandlerId] = std::thread([this, playerHandler, filePath, currentHandlerId]() {
 		logger(LogLevel::INFO, "Player handler thread running... " + std::string(filePath));
         if (playerHandler->loadMedia(filePath)) {
@@ -66,16 +68,6 @@ void CommandProcessor::handleLoad(const std::string& filePath) {
 			
 			playerHandler->isLoaded = true;
 
-            // Wait until media is ready to play
-//            while (playerHandler->mainThreadHandler->mediaState.status != MediaState::ENOUGHDATATOPLAY) {
-//                std::this_thread::sleep_for(std::chrono::milliseconds(10));
-//            }
-
-//            logger(LogLevel::INFO, "Media ready to play: " + std::string(filePath));
-            
-//            rescaler.initializeSwsContext(playerHandler->formatHandler->getVideoCodecContext());
-			
-            // If there's an active handler, stop and clean it up
             if (activeHandlerId >= 0 && activeHandlerId != currentHandlerId) {
                 cleanUpOldHandler(activeHandlerId);
             }
@@ -116,10 +108,8 @@ void CommandProcessor::handleStop() {
 }
 
 PlayerThreadHandler* CommandProcessor::getPlayerHandlerAt(int position) {
-	std::lock_guard<std::mutex> lock(mutex);
-	logger(LogLevel::DEBUG, "playerHandlers.count(position) : " + LogUtils::toString(playerHandlers.count(position)));
+
 	if (playerHandlers.count(position) > 0) {
-		logger(LogLevel::DEBUG, "playerHandler found : returning it");
 		return playerHandlers.at(position);
 	}
 	return nullptr;
@@ -144,11 +134,6 @@ void CommandProcessor::cleanUpOldHandler(int id) {
 void CommandProcessor::abort() {
 	logger(LogLevel::DEBUG, "CommandProcessor::abort called");
 	
-	for (auto& [id, handler] : playerHandlers) {
-		logger(LogLevel::DEBUG, "calling abort for playerHandler id  : " + LogUtils::toString(id));
-		handler->abort();
-    }
-	
 	for (auto& [id, thread] : playerThreads) {
         if (thread.joinable()) thread.join();
     }
@@ -156,4 +141,17 @@ void CommandProcessor::abort() {
         delete handler;
     }
     socketServer.reset();
+    logger(LogLevel::DEBUG, "CommandProcessor abort sequence ended");
+}
+
+void CommandProcessor::setAbort() {
+	// abort() will be called on exiting the main scope, but we first need to call it manually,
+	// join the threads before cleaning the rest.
+	// So there's a mechanism preenting multiple calls.
+	logger(LogLevel::DEBUG, "CommandProcessor::setAbort called, aborted is : " + LogUtils::toString(aborted));
+	if (!aborted) {
+		logger(LogLevel::DEBUG, "CommandProcessor should abort");
+		aborted = true;
+		abort();
+	}
 }

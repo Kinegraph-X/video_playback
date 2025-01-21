@@ -1,6 +1,5 @@
 #include "player_headers.h"
 #include "utils.h"
-#include "constants.h"
 #include "SDLManager.h"
 #include "SDLAudioDevice.h"
 #include "CommandProcessor.h"
@@ -9,7 +8,36 @@
 #include "PlayerThreadHandler.h"
 #include "ShouldRenderHandler.h"
 
+#include <dbghelp.h>
+#pragma comment(lib, "dbghelp.lib")
 
+
+
+void cleanup(
+		SDLManager* sdl_manager,
+		CommandProcessor& commandProcessor,
+		std::thread& commandThread,
+		ImageRescaler* rescaler,
+		AVFrame* frame,
+		std::unique_ptr<ShouldRenderHandler>& shouldRenderHandler
+	) {
+	
+    commandProcessor.setAbort();
+    if (commandThread.joinable()) {
+    	commandThread.join();
+	}
+	
+//	shouldRenderHandler.reset();
+	
+    if (sdl_manager) {
+        sdl_manager->reset();
+    }
+	
+	delete sdl_manager;
+	delete rescaler;
+	av_frame_free(&frame);
+	logger(LogLevel::DEBUG, "END of exit sequence");
+}
 
 void initRescaler(SDLManager* sdlManager, AVCodecContext* videoCodecContext) {
     int width = 0, height = 0;
@@ -18,9 +46,8 @@ void initRescaler(SDLManager* sdlManager, AVCodecContext* videoCodecContext) {
     sdlManager->resizeWindowFileLoaded(videoCodecContext, &windowSize);
 }
 
-
-
 int WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow) {
+
 	av_log_set_level(AV_LOG_VERBOSE);
 	
 	InitialParams* initialParams = new InitialParams{
@@ -54,7 +81,7 @@ int WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int n
 		"Video Player"
 	);
 	
-	std::string filePath = "\\media\\test_video.mp4";
+	std::string filePath = "\\media\\test_video_02.mp4";
 	
 	// Initialize TCP server
     SocketServer socketServer(socket_params.port);
@@ -88,11 +115,12 @@ int WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int n
 	
 	while (isRunning) {
 		if (commandProcessor.activeHandlerId != currentPlayerId) {
+			logger(LogLevel::DEBUG, "currentPlayer changed");
 			currentPlayerId = commandProcessor.activeHandlerId;
 			playerHandler = commandProcessor.getPlayerHandlerAt(currentPlayerId);
 		    if (playerHandler) {
 				videoCodecContext = playerHandler->formatHandler->getVideoCodecContext();
-				if (videoCodecContext && !resizerOK) {
+				if (videoCodecContext) { //  && !resizerOK
 					initRescaler(sdl_manager, videoCodecContext);
 					renderHandler = std::make_unique<ShouldRenderHandler>(playerHandler->videoFrameQueue);
 					resizerOK = true;
@@ -103,12 +131,12 @@ int WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int n
 	    while (SDL_PollEvent(&event)) {
 			switch(event.type) {
 				case SDL_QUIT : 
-					isRunning = false;
+					isRunning.store(false, std::memory_order_release);
 					break;
 				case SDL_USEREVENT : 
 					switch (static_cast<PlayerEvent::Type>(event.user.code)) {
 						case PlayerEvent::SHOULD_RENDER :
-							if (!aborted && resizerOK) {
+							if (!aborted) { //  && resizerOK
 								
 								if (!(renderHandler->handleRenderEvent(event.user.data1, frame))) {
                                     logger(LogLevel::ERR, "Failed to handle SHOULD_RENDER event.");
@@ -118,7 +146,6 @@ int WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int n
 									sdl_manager->updateTextureFromFrame(frame);
 									av_frame_unref(frame);
 								}
-								aborted = true;
 							}
 							break;		
 					}
@@ -139,18 +166,16 @@ int WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int n
 	    SDL_Delay(16); // ~60 FPS cap
 	}
 	
-	// Cleanup
-	
-	av_frame_free(&frame);
-    socketServer.reset();
-    commandProcessor.abort();
-    commandThread.join();
-    
-    delete rescaler;
-	delete sdl_manager;
-	    
-    SDL_Quit();
-
+	cleanup(
+		sdl_manager,
+		commandProcessor,
+		commandThread,
+		rescaler,
+		frame,
+		renderHandler // not needed, but here to remind it should be passed by reference
+	);
+	   
+//	SDL_Quit();
     return 0;
 }
 

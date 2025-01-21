@@ -1,7 +1,6 @@
 #pragma once
 
 #include "player_headers.h"
-#include "constants.h"
 
 class ImageRescaler {
 public:
