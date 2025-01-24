@@ -7,8 +7,7 @@
 #include "ImageRescaler.h"
 #include "PlayerThreadHandler.h"
 #include "ShouldRenderHandler.h"
-//#include "templates/testTemplate.h"
-//#include "UIApplication.h"
+#include "DOM/Button.h"
 
 
 #include <dbghelp.h>
@@ -17,34 +16,18 @@
 
 
 void cleanup(
-//		std::thread* uiThread,
 		SDLManager* sdl_manager,
 		CommandProcessor& commandProcessor,
 		std::thread& commandThread,
 		ImageRescaler* rescaler,
 		AVFrame* frame,
-//		UIApplication* uiApplication,
 		std::unique_ptr<ShouldRenderHandler>& shouldRenderHandler
 	) {
-	
-//	HWND hwnd = sdl_manager->getNativeWindowHandle();
-//	WNDPROC originalWindowProc = (WNDPROC)GetProp(hwnd, ORIGINAL_WNDPROC_PROP);
-//    if (originalWindowProc) {
-//		logger(LogLevel::DEBUG, "Cleaning subclassed window proc...");
-//        SetWindowLongPtr(hwnd, GWLP_WNDPROC, (LONG_PTR)originalWindowProc);
-//        RemoveProp(hwnd, ORIGINAL_WNDPROC_PROP);
-//    }
-//    RemoveProp(hwnd, ORIGINAL_WNDPROC_PROP);
 	
     commandProcessor.setAbort();
     if (commandThread.joinable()) {
     	commandThread.join();
 	}
-	
-//	delete uiApplication;
-//	if (uiThread->joinable()) {
-//		uiThread->join();
-//	}
 	
 //	shouldRenderHandler.reset();
 	
@@ -128,24 +111,6 @@ int WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int n
 		initialParams.height,
 		"JAGF - Just-Another-Good-FFmpegPlayer"
 	);
-//	COLORREF titlebar_color = 0x08121A22;
-//	subClassWindowProc(sdl_manager->getNativeWindowHandle());
-//	bool fakeTrue = true;
-//	DwmSetWindowAttribute(sdl_manager->getNativeWindowHandle(), DWMWA_USE_IMMERSIVE_DARK_MODE, &fakeTrue, sizeof(bool));
-	
-	/*
-	* PLAYER UI WINDOW
-	*/
-//	WindowSize windowBordersSize = getWindowBorders(sdl_manager->getNativeWindowHandle());
-//	UIApplication* uiApplication = new UIApplication(
-//		initialParams.xPos,
-//		initialParams.yPos + initialParams.height + titleBarHeight + 10,
-//		initialParams.width,
-//		80,
-//		"FLTK Window"
-//	);
-//	uiApplication->finalize();
-//	std::thread uiThread = std::thread([uiApplication]() { uiApplication->run(); });
 	
 	/*
 	* MAIN EVENT HANDLER
@@ -216,13 +181,11 @@ int WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int n
 	}
 	
 	cleanup(
-//		&uiThread,
 		sdl_manager,
 		commandProcessor,
 		commandThread,
 		rescaler,
 		frame,
-//		uiApplication,
 		renderHandler // not needed, but here to remind it should be passed by reference
 	);
 	   

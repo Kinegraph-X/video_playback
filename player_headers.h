@@ -65,17 +65,6 @@ extern "C" {
 #include <SDL2/SDL_opengl.h>
 #include <SDL2/SDL_syswm.h>
 
-//#define FL_DLL
-//#include <FL/Fl_Window.H>
-//#include <FL/Fl_Button.H>
-//#include <FL/Fl_PNG_Image.H>
-//#include <FL/Fl.H>
-
-//#pragma comment (lib, "fltk_dll.lib")
-//#pragma comment (lib, "fltk_forms.lib")
-//#pragma comment (lib, "fltk_gl.lib")
-//#pragma comment (lib, "fltk_png_dll.lib")
-//#pragma comment (lib, "fltk_z_dll.lib")
 
 #pragma comment (lib, "SDL2_libs/SDL2main.lib")
 #pragma comment (lib, "SDL2_libs/SDL2.lib")
