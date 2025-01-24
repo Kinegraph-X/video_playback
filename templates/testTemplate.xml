@@ -1,0 +1,5 @@
+<Node id="main_container" className="">
+	Player controls : 
+	<Button className="play_button"></Button>
+	<Button className="stop_button"></Button>
+</Node>
