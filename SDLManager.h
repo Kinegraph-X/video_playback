@@ -6,41 +6,49 @@
 
 class SDLManager {
 public:
-    SDLManager();
+    SDLManager(int titleBarHeight);
     ~SDLManager();
 
     bool initialize(ImageRescaler* rescaler);
 
     // sets up SDL_Window, SDL_Renderer, and SDL_Texture
     bool start(int xpos, int ypos, int width, int height, char title[]);
-
-    void render(const uint8_t* y_plane, int y_pitch,
-                const uint8_t* u_plane, int u_pitch,
-                const uint8_t* v_plane, int v_pitch,
-                int video_width, int video_height);
+	HWND SDLManager::getNativeWindowHandle();
+	
+	bool SDLManager::initGLContext();
+	bool SDLManager::initRenderer();
+	bool SDLManager::initTextures(int width, int height);
+	void SDLManager::render();
+	void SDLManager::renderTitleBar();
 	
 	void updateTextureFromFrame(AVFrame* frame);
 	
 	void resizeWindowFileLoaded(AVCodecContext* codecContext, const WindowSize* initialParams);
 	void resetRescaler(AVCodecContext* codecContext, const WindowSize* initialParams);
+	void clampLuminance(AVFrame* frame, uint8_t minLuminance);
 
     // Reset method: destroys SDL resources
     void reset();
-    void cleanUp();
+    void cleanup();
 
     bool isReady();
     
     SDL_Window* window = nullptr;
+    HWND hwnd = nullptr;
     AudioDevice* audioDevice = nullptr;
 
 private:
     Uint32 window_id;
     SDL_Renderer* renderer = nullptr;
-    SDL_Texture* texture = nullptr;     // SDL texture for video frames
+    SDL_Texture* videoTexture = nullptr;
+    SDL_Texture* titleBarTexture = nullptr;
     
     bool initialized;
     bool started;
     ImageRescaler* rescaler;
+    
+    int windowWidth = 0;
+    int titleBarHeight = 31;
 };
 
 

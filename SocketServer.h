@@ -29,6 +29,7 @@ private:
     SOCKET serverSocket;
     int port;
     std::atomic<bool> isRunning;
+    bool isAborted = false;
 
     std::thread listeningThread;
     std::vector<std::thread> clientThreads;

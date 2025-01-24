@@ -7,6 +7,9 @@
 #include "ImageRescaler.h"
 #include "PlayerThreadHandler.h"
 #include "ShouldRenderHandler.h"
+//#include "templates/testTemplate.h"
+//#include "UIApplication.h"
+
 
 #include <dbghelp.h>
 #pragma comment(lib, "dbghelp.lib")
@@ -14,18 +17,34 @@
 
 
 void cleanup(
+//		std::thread* uiThread,
 		SDLManager* sdl_manager,
 		CommandProcessor& commandProcessor,
 		std::thread& commandThread,
 		ImageRescaler* rescaler,
 		AVFrame* frame,
+//		UIApplication* uiApplication,
 		std::unique_ptr<ShouldRenderHandler>& shouldRenderHandler
 	) {
+	
+//	HWND hwnd = sdl_manager->getNativeWindowHandle();
+//	WNDPROC originalWindowProc = (WNDPROC)GetProp(hwnd, ORIGINAL_WNDPROC_PROP);
+//    if (originalWindowProc) {
+//		logger(LogLevel::DEBUG, "Cleaning subclassed window proc...");
+//        SetWindowLongPtr(hwnd, GWLP_WNDPROC, (LONG_PTR)originalWindowProc);
+//        RemoveProp(hwnd, ORIGINAL_WNDPROC_PROP);
+//    }
+//    RemoveProp(hwnd, ORIGINAL_WNDPROC_PROP);
 	
     commandProcessor.setAbort();
     if (commandThread.joinable()) {
     	commandThread.join();
 	}
+	
+//	delete uiApplication;
+//	if (uiThread->joinable()) {
+//		uiThread->join();
+//	}
 	
 //	shouldRenderHandler.reset();
 	
@@ -36,73 +55,105 @@ void cleanup(
 	delete sdl_manager;
 	delete rescaler;
 	av_frame_free(&frame);
+	
+	
+	
 	logger(LogLevel::DEBUG, "END of exit sequence");
 }
 
-void initRescaler(SDLManager* sdlManager, AVCodecContext* videoCodecContext) {
+void initRescaler(SDLManager* sdlManager, AVCodecContext* videoCodecContext, int titleBarHeight) {
     int width = 0, height = 0;
     SDL_GetWindowSize(sdlManager->window, &width, &height);
+    height -= titleBarHeight;
     WindowSize windowSize{width, height};
     sdlManager->resizeWindowFileLoaded(videoCodecContext, &windowSize);
 }
 
 int WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow) {
-
+	// DEBUG
+	bool aborted = false;
+	bool resizerOK = false;
+	std::string filePath = "\\media\\test_video_02.mp4";
+	
+	/*
+	*  INIT
+	*/
 	av_log_set_level(AV_LOG_VERBOSE);
 	
-	InitialParams* initialParams = new InitialParams{
+	AVFrame* frame = av_frame_alloc();
+	if (!frame) {
+        logger(LogLevel::ERR, "Failed to allocate memory for frame.");
+    }
+	std::atomic<bool> isRunning(true);
+	int currentPlayerId = -1;
+	
+    AVCodecContext* videoCodecContext = nullptr;
+	PlayerThreadHandler* playerHandler = nullptr;
+	std::unique_ptr<ShouldRenderHandler> renderHandler = nullptr;
+	SDL_Event event;
+	
+	InitialParams initialParams = InitialParams{
 		500,
 		200,
 		570,
 		320,
 		av_get_bytes_per_sample(AV_SAMPLE_FMT_S16)
 	};
+	int titleBarHeight = 31;
 	
 	Socket_Params socket_params = {
 		51312
 	};
-
-	std::atomic<bool> isRunning(true);
-
-//	SetDllDirectory(GetExecutablePath().c_str());
-
-	ImageRescaler* rescaler = new ImageRescaler();
 	
-	SDLManager* sdl_manager = new SDLManager();
+	WindowSize currentWindowPosition {
+		initialParams.width,
+		initialParams.height,
+		initialParams.xPos,
+		initialParams.yPos
+	};
+
+	/*
+	* MAIN PLAYER WINDOW
+	*/
+	ImageRescaler* rescaler = new ImageRescaler();
+	SDLManager* sdl_manager = new SDLManager(titleBarHeight);
 	if (!sdl_manager->initialize(rescaler)) {
 		logger(LogLevel::ERR, "Exiting after SDL error");
 		return -1;
 	}
 	sdl_manager->start(
-		initialParams->xpos,
-		initialParams->ypos,
-		initialParams->width,
-		initialParams->height,
-		"Video Player"
+		initialParams.xPos,
+		initialParams.yPos,
+		initialParams.width,
+		initialParams.height,
+		"JAGF - Just-Another-Good-FFmpegPlayer"
 	);
+//	COLORREF titlebar_color = 0x08121A22;
+//	subClassWindowProc(sdl_manager->getNativeWindowHandle());
+//	bool fakeTrue = true;
+//	DwmSetWindowAttribute(sdl_manager->getNativeWindowHandle(), DWMWA_USE_IMMERSIVE_DARK_MODE, &fakeTrue, sizeof(bool));
 	
-	std::string filePath = "\\media\\test_video_02.mp4";
+	/*
+	* PLAYER UI WINDOW
+	*/
+//	WindowSize windowBordersSize = getWindowBorders(sdl_manager->getNativeWindowHandle());
+//	UIApplication* uiApplication = new UIApplication(
+//		initialParams.xPos,
+//		initialParams.yPos + initialParams.height + titleBarHeight + 10,
+//		initialParams.width,
+//		80,
+//		"FLTK Window"
+//	);
+//	uiApplication->finalize();
+//	std::thread uiThread = std::thread([uiApplication]() { uiApplication->run(); });
 	
+	/*
+	* MAIN EVENT HANDLER
+	*/
     CommandProcessor commandProcessor(isRunning, sdl_manager->audioDevice, socket_params.port);
     std::thread commandThread(&CommandProcessor::listeningLoop, &commandProcessor);
     commandProcessor.handleLoad(filePath);
 	
-	// DEBUG
-	bool aborted = false;
-	
-	bool resizerOK = false;
-	int currentPlayerId = -1;
-	
-	AVFrame* frame = av_frame_alloc();
-	if (!frame) {
-        logger(LogLevel::ERR, "Failed to allocate memory for frame.");
-    }
-    
-    AVCodecContext* videoCodecContext = nullptr;
-	PlayerThreadHandler* playerHandler = nullptr;
-	std::unique_ptr<ShouldRenderHandler> renderHandler = nullptr;
-	
-	SDL_Event event;
 	
 	while (isRunning) {
 		if (commandProcessor.activeHandlerId != currentPlayerId) {
@@ -112,7 +163,7 @@ int WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int n
 		    if (playerHandler) {
 				videoCodecContext = playerHandler->formatHandler->getVideoCodecContext();
 				if (videoCodecContext) { //  && !resizerOK
-					initRescaler(sdl_manager, videoCodecContext);
+					initRescaler(sdl_manager, videoCodecContext, titleBarHeight);
 					renderHandler = std::make_unique<ShouldRenderHandler>(playerHandler->videoFrameQueue);
 					resizerOK = true;
 				}
@@ -123,12 +174,12 @@ int WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int n
 			switch(event.type) {
 				case SDL_QUIT : 
 					isRunning.store(false, std::memory_order_release);
+					logger(LogLevel::DEBUG, "Received SDL_Quit event");
 					break;
 				case SDL_USEREVENT : 
 					switch (static_cast<PlayerEvent::Type>(event.user.code)) {
 						case PlayerEvent::SHOULD_RENDER :
-							if (!aborted) { //  && resizerOK
-								
+							if (!aborted) {
 								if (!(renderHandler->handleRenderEvent(event.user.data1, frame))) {
                                     logger(LogLevel::ERR, "Failed to handle SHOULD_RENDER event.");
                                     aborted = true;
@@ -148,9 +199,16 @@ int WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int n
 							sdl_manager->resizeWindowFileLoaded(videoCodecContext, &windowSize);
 						}
 					}
+					else if (event.window.event == SDL_WINDOWEVENT_MOVED) {
+			            int offsetX = event.window.data1 - currentWindowPosition.xPos;
+			            int offsetY = event.window.data2 - currentWindowPosition.yPos;
+//			            uiApplication->updateUIWindowPosition(offsetX, offsetY);
+			            
+			            currentWindowPosition.xPos = event.window.data1;
+			            currentWindowPosition.yPos = event.window.data2;
+			        }
 					break;
 				default:
-//			      logger(LogLevel::ERR, "Unhandled Event!");
 			      break;
 			};
 	    }
@@ -158,15 +216,16 @@ int WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int n
 	}
 	
 	cleanup(
+//		&uiThread,
 		sdl_manager,
 		commandProcessor,
 		commandThread,
 		rescaler,
 		frame,
+//		uiApplication,
 		renderHandler // not needed, but here to remind it should be passed by reference
 	);
 	   
-//	SDL_Quit();
     return 0;
 }
 

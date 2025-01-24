@@ -115,39 +115,42 @@ void SocketServer::stop() {
 
 void SocketServer::cleanup() {
     logger(LogLevel::DEBUG, "SocketServer::cleanup starting");
-
-    // First notify all waiting threads
-	stop();
-
-    // Give threads a moment to see the isRunning flag
-    std::this_thread::sleep_for(std::chrono::milliseconds(10));
-
-    // Then close the server socket
-    int ret = closesocket(serverSocket);
-    if (ret == -1) {
-        int err = WSAGetLastError();
-        logger(LogLevel::ERR, "Socket close failed: " + LogUtils::toString(err));
-    }
-
-    if (listeningThread.joinable()) {
-        logger(LogLevel::DEBUG, "Joining listening thread");
-        listeningThread.join();
-    }
-
-    for (auto& clientThread : clientThreads) {
-        if (clientThread.joinable()) {
-            clientThread.join();
-        }
-    }
-
-    clientThreads.clear();
-    
-    // Clear any remaining commands
-    {
-        std::lock_guard<std::mutex> lock(commandQueueMutex);
-        std::queue<std::string>().swap(commandQueue);  // Clear queue
-    }
-
+	
+	if (!isAborted) {
+	    // First notify all waiting threads
+		stop();
+	
+	    // Give threads a moment to see the isRunning flag
+	    std::this_thread::sleep_for(std::chrono::milliseconds(30));
+	
+	    // Then close the server socket
+	    int ret = closesocket(serverSocket);
+	    if (ret == -1) {
+	        int err = WSAGetLastError();
+	        logger(LogLevel::ERR, "SocketServer::cleanup Socket close failed: " + LogUtils::toString(err));
+	    }
+	
+	    if (listeningThread.joinable()) {
+	        logger(LogLevel::DEBUG, "SocketServer::cleanup Joining listening thread");
+	        listeningThread.join();
+	    }
+	
+	    for (auto& clientThread : clientThreads) {
+	        if (clientThread.joinable()) {
+	            clientThread.join();
+	        }
+	    }
+	
+	    clientThreads.clear();
+	    
+	    // Clear any remaining commands
+	    {
+	        std::lock_guard<std::mutex> lock(commandQueueMutex);
+	        std::queue<std::string>().swap(commandQueue);  // Clear queue
+	    }
+		
+		isAborted = true;
+	}
     logger(LogLevel::DEBUG, "SocketServer::cleanup sequence ended");
 }
 

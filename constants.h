@@ -6,8 +6,8 @@ const int CHANNEL_COUNT = 2;
 const int BUFFER_SIZE = 512;
 
 struct InitialParams {
-	int xpos;
-	int ypos;
+	int xPos;
+	int yPos;
 	int width;
 	int height;
 	int bytes_per_sample;
@@ -16,6 +16,8 @@ struct InitialParams {
 struct WindowSize {
 	int width = 0;
 	int height = 0;
+	int xPos = 0;
+	int yPos = 0;
 };
 
 struct Socket_Params {
