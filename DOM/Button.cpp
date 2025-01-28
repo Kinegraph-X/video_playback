@@ -1,12 +1,12 @@
 #pragma once
 #include "Button.h"
 
-Button::Button(Node* parent = nullptr) : Clickable(parent) {}
+Button::Button(Node* parent, char* id, char* className) : Clickable(parent) {}
 
-void Button::onPress() override {
+void Button::onPress() {
     
 }
 
-void Button::onRelease() override {
+void Button::onRelease() {
     
 }

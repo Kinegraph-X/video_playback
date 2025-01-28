@@ -1,0 +1,23 @@
+CompileFlags:                     # Tweak the parse settings
+  Add: [
+	-xc++,
+	-IC:\Production Data\Git\projets_Cpp_Lib\,
+	-IC:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.42.34433\include,
+	-IC:\Production Data\Git\projets_Cpp\video_player,
+	-IC:\Program Files (x86)\Windows Kits\10\Include\10.0.22621.0\um,
+	-IC:\Program Files (x86)\Windows Kits\10\Include\10.0.22621.0\shared,
+	-IC:\Program Files (x86)\Windows Kits\10\Include\10.0.22621.0\ucrt,
+	-IC:\Production_Tools\EclipseWebDev\lib\gcc\x86_64-w64-mingw32\14.2.0\include,
+	-isystemC:\Production Data\Git\projets_Cpp_Lib\RayLib\include
+  ]
+
+---
+If:
+  PathMatch: ['.*RayLib/include/.*', .*raylib_headers.h]
+CompileFlags:
+  Add: [-xc, -w]
+  Remove: [-std=*]
+Diagnostics:
+  Suppress: ['*']
+  ClangTidy:
+    Remove: '*'

@@ -1,11 +1,29 @@
 #pragma once
-#include "Node.h"
+#include "Clickable.h"
 
 
-Clickable::Clickable(Node* parent = nullptr) : Node(parent), isPressed(false) {
+Clickable::Clickable(Node* parent, char* id, char* className) : Node(parent), isActive(false) {
     initEventType(EventType::MouseDown);
     initEventType(EventType::MouseMove);
     initEventType(EventType::MouseUp);
+}
+
+void Clickable::onPress() {}
+void Clickable::onRelease() {}
+void Clickable::setOnDragStart(DragCallback callback) { onDragStart = std::move(callback); }
+void Clickable::setOnDragMove(DragCallback callback) { onDragMove = std::move(callback); }
+void Clickable::setOnDragEnd(DragCallback callback) { onDragEnd = std::move(callback); }
+
+void Clickable::setStyle(const Style& newStyle) {
+	std::lock_guard<std::mutex> lock(nodeMutex);
+	if (style) {
+        delete style;
+    }
+    style = new Style(newStyle);  // Create a copy of newStyle on the heap
+    if (cachedStyle) {
+        delete cachedStyle;
+    }
+    cachedStyle = new Style(newStyle);
 }
 
 void Clickable::toggleActive() {
@@ -16,15 +34,15 @@ void Clickable::toggleActive() {
 void Clickable::updateAppearance() {
     Style& style = getStyle();
     if (isActive) {
-        setBackgroundColor(style.activeBackgroundColor);
-        setBorderColor(style.activeBorderColor);
-        setTextColor(style.activeTextColor);
-        setBackgroundImage(style.activeBackgroundImage);
+        setBackgroundColor(cachedStyle->activeBackgroundColor);
+        setBorderColor(cachedStyle->activeBorderColor);
+        setTextColor(cachedStyle->activeTextColor);
+        setBackgroundImage(cachedStyle->activeBackgroundImage);
     } else {
-        setBackgroundColor(style.backgroundColor);
-        setBorderColor(style.borderColor);
-        setTextColor(style.textColor);
-        setBackgroundImage(style.backgroundImage);
+        setBackgroundColor(cachedStyle->backgroundColor);
+        setBorderColor(cachedStyle->borderColor);
+        setTextColor(cachedStyle->textColor);
+        setBackgroundImage(cachedStyle->backgroundImage);
     }
 }
 
@@ -43,8 +61,13 @@ void Clickable::handleClick(const EventPayload& payload) {
         case EventType::MouseUp:
             if (isActive.load()) {
                 if (isDragging.load()) {
-                    onDragEnd();
+                    onDragEnd(payload.mousePosition);
                     isDragging.store(false);
+                    EventPayload forwardedPayload{
+						EventType::DragEnd
+					};
+					forwardedPayload.mousePosition = payload.mousePosition; 
+                    EventListener::handleEvent(forwardedPayload);
                 }
                 onRelease();
             }
@@ -56,14 +79,25 @@ void Clickable::handleClick(const EventPayload& payload) {
 				std::lock_guard<std::mutex> lock(dragMutex);
                 if (!isDragging.load()) {
                     // Check if the mouse has moved enough to start dragging
-                    if (Vector2Distance(dragStartPosition, payload.mousePosition) > 5.0f) {
+                    if (RaylibVector2Distance(dragStartPosition, payload.mousePosition) > 5.0f) {
                         isDragging = true;
-                        onDragStart();
+                        onDragStart(dragStartPosition);
+                        EventPayload forwardedPayload{
+							EventType::DragStart
+						};
+						forwardedPayload.mousePosition = dragStartPosition; 
+                        EventListener::handleEvent(forwardedPayload);
                     }
                 }
                 if (isDragging.load()) {
-                    onDragMove();
+					RaylibVector2 dragVector = RaylibVector2Subtract(dragStartPosition, payload.mousePosition);
+                    onDragMove(dragVector);
                     lastDragPosition = payload.mousePosition;
+                    EventPayload forwardedPayload{
+						EventType::DragMove
+					};
+					forwardedPayload.mousePosition = dragVector; 
+                    EventListener::handleEvent(forwardedPayload);
                 }
             }
             break;
@@ -71,7 +105,7 @@ void Clickable::handleClick(const EventPayload& payload) {
 }
 
 
-void Clickable::handleEvent(const EventPayload& payload) override {
+void Clickable::handleEvent(const EventPayload& payload) {
     if (payload.type == EventType::MouseDown) {
         toggleActive();
         onPress();
@@ -80,11 +114,11 @@ void Clickable::handleEvent(const EventPayload& payload) override {
         onRelease();
     }
     handleClick(payload);
-    Node::handleEvent(payload);
+    EventListener::handleEvent(payload);
 }
 
-Vector2 Clickable::getDragDelta() const {
+RaylibVector2 Clickable::getDragDelta() {
 	std::lock_guard<std::mutex> lock(dragMutex);
-    return Vector2Subtract(lastDragPosition, dragStartPosition);
+    return RaylibVector2Subtract(lastDragPosition, dragStartPosition);
 }
 

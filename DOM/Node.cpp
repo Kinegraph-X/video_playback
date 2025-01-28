@@ -1,12 +1,11 @@
 #pragma once
-#include <atomic>
-#include <mutex>
-#include "EventListener"
-#include "Style.h"
+#include "Node.h"
 
-
-
-Node::Node(Node* parent = nullptr, char* id = nullptr, char* className = nullptr) : parent(parent) {
+// If we were using std::unique_ptr<Node>&& parent
+// Call with auto node = std::make_unique<Node>(std::move(parentNode), "id", "className");
+// Remember that after moving a unique_ptr, the original pointer becomes null,
+// so ensure we're not using the moved pointer afterwards
+Node::Node(Node* parent, char* id, char* className) : parent(std::move(parent)) {
     if (parent) {
         parent->addChild(this);
     }
@@ -14,7 +13,7 @@ Node::Node(Node* parent = nullptr, char* id = nullptr, char* className = nullptr
 }
 Node::~Node() {
     if (textureInitialized) {
-        UnloadTexture(texture);
+        RaylibUnloadTexture(texture);
     }
     if (style) {
         delete style;
@@ -23,6 +22,10 @@ Node::~Node() {
 }
 
 
+Node* Node::getParent() {
+	return parent;
+}
+
 void Node::setParent(Node* newParent) {
 	std::lock_guard<std::mutex> lock(nodeMutex);
     if (parent) {
@@ -30,27 +33,34 @@ void Node::setParent(Node* newParent) {
     }
     parent = newParent;
     if (parent) {
-        parent->addChild(std::unique_ptr<Node>(this));
+        parent->addChild(this);
     }
 }
 
-void Node::addChild(std::unique_ptr<Node> child) {
+void Node::addChild(Node* child) {
 	std::lock_guard<std::mutex> lock(nodeMutex);
     child->parent = this;
-    children.push_back(std::move(child));
+    children.push_back(child);
 }
 
 void Node::removeChild(Node* child) {
 	std::lock_guard<std::mutex> lock(nodeMutex);
-    auto it = std::find_if(children.begin(), children.end(),
-                           [child](const std::unique_ptr<Node>& c) { return c.get() == child; });
+    auto it = std::find_if(
+		children.begin(),
+		children.end(),
+        [child](const Node* c) { return c == child; }
+    );
     if (it != children.end()) {
         (*it)->parent = nullptr;
         children.erase(it);
     }
 }
 
-void Node::void setStyle(const Style& newStyle) {
+std::vector<Node*> Node::getChildren() {
+	return children;
+}
+
+void Node::setStyle(const Style& newStyle) {
 	std::lock_guard<std::mutex> lock(nodeMutex);
 	if (style) {
         delete style;
@@ -61,7 +71,7 @@ void Node::void setStyle(const Style& newStyle) {
 
 Style& Node::getStyle() {
 	std::lock_guard<std::mutex> lock(nodeMutex);
-	return style;
+	return *style;
 }
 
 void Node::setTextContent(const std::string& text) {
@@ -69,7 +79,7 @@ void Node::setTextContent(const std::string& text) {
     textContent = text;
 }
 
-std::string Node::getTextContent() const {
+std::string Node::getTextContent() {
     std::lock_guard<std::mutex> lock(nodeMutex);
     return textContent;
 }
@@ -79,7 +89,7 @@ std::string Node::getTextContent() const {
 void Node::setTexture(const Texture2D& newTexture) {
 	std::lock_guard<std::mutex> lock(nodeMutex);
     if (textureInitialized) {
-        UnloadTexture(texture);
+        RaylibUnloadTexture(texture);
     }
     texture = newTexture;
     textureInitialized = true;
@@ -89,9 +99,9 @@ void Node::initNodeEventTypes() {
     // Initialize additional event types specific to nodes if needed
 }
 
-void Node::dispatchEvent(Node* root, Node* target, const EventPayload& payload) {
+void Node::dispatchEvent(const EventPayload& payload) {
     std::vector<Node*> path;
-    Node* current = target;
+    Node* current = this;
     
     // Build path from target to root
     while (current) {
@@ -105,7 +115,7 @@ void Node::dispatchEvent(Node* root, Node* target, const EventPayload& payload) 
 //	    }
     
     // Target phase
-    target->handleEvent(payload);
+    this->handleEvent(payload);
     
     // Bubbling phase
     for (auto it = path.rbegin(); it >= path.rend(); ++it) {
@@ -113,9 +123,22 @@ void Node::dispatchEvent(Node* root, Node* target, const EventPayload& payload) 
     }
 }
 
-void Node::bubbleEvent(const EventPayload& payload) {
-    dispatchEvent(payload);
+//void Node::bubbleEvent(const EventPayload& payload) {
+//    handleEvent(payload);
 //	if (parent) {
 //      parent->bubbleEvent(payload);
 //   }
+//}
+
+void Node::setBackgroundColor(RaylibColor color) {
+	style->backgroundColor = color;
+}
+void Node::setBorderColor(RaylibColor color) {
+	style->borderColor = color;
+}
+void Node::setTextColor(RaylibColor color) {
+	style->textColor = color;
+}
+void Node::setBackgroundImage(std::string name) {
+	style->backgroundImage = name;
 }

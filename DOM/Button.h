@@ -1,9 +1,9 @@
 #pragma once
-#include "Clickable.h"
+#include "DOM/Clickable.h"
 
 class Button : public Clickable {
 public:
-    Button(Node* parent = nullptr);
+    Button(Node* parent = nullptr, char* id = nullptr, char* className = nullptr);
 
     void onPress() override;
 

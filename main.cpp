@@ -1,13 +1,14 @@
 #include "player_headers.h"
-#include "utils.h"
+#include "utils.h"  // IWYU pragma: export
 #include "SDLManager.h"
-#include "SDLAudioDevice.h"
+#include "SDLAudioDevice.h" // IWYU pragma: export
 #include "CommandProcessor.h"
-#include "SocketServer.h"
+#include "SocketServer.h" // IWYU pragma: export
 #include "ImageRescaler.h"
 #include "PlayerThreadHandler.h"
 #include "ShouldRenderHandler.h"
-#include "DOM/Button.h"
+#include "RaylibManager.h" // IWYU pragma: export
+#include "DOM/Button.h" // IWYU pragma: export
 
 
 #include <dbghelp.h>

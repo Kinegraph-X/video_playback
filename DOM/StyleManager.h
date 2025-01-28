@@ -14,4 +14,6 @@ public:
     void addClassStyle(const std::string& className, const Style& style);
 
     const Style& getStyle(const std::string& id, const std::string& className) const;
+    
+    std::vector<std::string> getAllBackgroundImageFilenames();
 };

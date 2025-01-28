@@ -1,10 +1,11 @@
 #pragma once
-#include  "../player_headers.h"
-#include "Button.h"
-#include "Checkbox.h"
+#include  "player_headers.h"
+#include "DOM/StyleManager.h"
+#include "DOM/Button.h"
+#include "DOM/Checkbox.h"
 
 struct NodeCreatorWalker : pugi::xml_tree_walker {
-    Node* currentParent;
+    Node* currentParent = std::make_unique<bRootNode>();
     const StyleManager& styleManager;
 
     NodeCreatorWalker(const StyleManager& sm) : currentParent(nullptr), styleManager(sm) {}

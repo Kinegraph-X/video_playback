@@ -1,8 +1,8 @@
 #pragma once
 
-#include "../player_headers.h"
-#include "EventType.h"
-#include "EventPayload.h"
+#include "player_headers.h"
+#include "DOM/EventType.h"
+#include "DOM/EventPayload.h"
 
 using EventHandler = std::function<void(const EventPayload&)>;
 
@@ -17,6 +17,6 @@ public:
 
     void removeEventListener(EventType type, EventHandler handler);
     
-    void dispatchEvent(const EventPayload& payload);
+    void handleEvent(const EventPayload& payload);
 };
 

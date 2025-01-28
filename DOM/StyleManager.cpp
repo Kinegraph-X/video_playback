@@ -21,3 +21,32 @@ const Style& StyleManager::getStyle(const std::string& id, const std::string& cl
 
     return defaultStyle;
 }
+
+std::vector<std::string> StyleManager::getAllBackgroundImageFilenames() {
+        std::unordered_set<std::string> uniqueFilenames;
+
+        // Helper function to add filename if backgroundImage is set
+        auto addFilenameIfSet = [&uniqueFilenames](const Style& style) {
+            if (!style.backgroundImage.empty()) {
+                uniqueFilenames.insert(style.backgroundImage);
+            }
+        };
+
+        // Check id styles
+        for (const auto& [id, style] : idStyles) {
+            addFilenameIfSet(style);
+        }
+        // Check class styles
+        for (const auto& [className, style] : classStyles) {
+            addFilenameIfSet(style);
+        }
+
+        // Convert set to vector
+        std::vector<std::string> result(uniqueFilenames.begin(), uniqueFilenames.end());
+        
+        // Optional: Sort the result for consistent ordering
+        std::sort(result.begin(), result.end());
+
+        return result;
+    }
+

@@ -1,6 +1,5 @@
 #pragma once
 
-#include "player_headers.h"
 #include "customizePlatformWindow.h"
 
 std::string GetExecutablePath();

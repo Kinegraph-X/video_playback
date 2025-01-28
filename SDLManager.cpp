@@ -17,6 +17,8 @@ bool SDLManager::initialize(ImageRescaler* rescaler) {
 		logger(LogLevel::INFO, std::string("SDL successfully started"));
 	}
 	
+	SDL_SetHint(SDL_HINT_RENDER_DRIVER, "opengl");
+
 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 1);
 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 1);
 	

@@ -1,0 +1,8 @@
+-c
+-std=c++17
+-Wall
+-fexceptions
+-fms-runtime-lib=dll
+-g
+-ferror-limit=400
+-Wno-unused-includes

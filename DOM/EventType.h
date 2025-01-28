@@ -6,8 +6,10 @@ enum class EventType {
     MouseMove,
     KeyDown,
     KeyUp,
+    CharInput,
     DragStart,
     DragMove,
     DragEnd,
+    MouseWheel,
     // Add more event types as needed
 };

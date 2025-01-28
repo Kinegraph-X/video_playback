@@ -1,14 +1,15 @@
 #pragma once
-#include "Clickable.h"
+#include "DOM/Clickable.h"
 
 class Checkbox : public Clickable {
 private:
-    std::atomic<bool> isChecked(false);
+    std::atomic<bool> isChecked{false};
     std::mutex checkboxMutex;
 
 public:
-    Checkbox(Node* parent = nullptr);
-
+    Checkbox(Node* parent = nullptr, char* id = nullptr, char* className = nullptr);
+	
+	void onPress() override;
     void onRelease() override;
 
     void updateAppearance();

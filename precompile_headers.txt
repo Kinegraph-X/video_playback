@@ -1,0 +1,116 @@
+Precompiling headers can significantly speed up builds and reduce parsing workload for tools like Clangd. Below is a step-by-step guide to precompiling the Raylib headers using MSVC or w64devkit, and including them in your project:
+
+Step 1: Create a Unified Header File
+Create a single header file that includes all the Raylib headers you want to precompile. For example, create a file named raylib_pch.h:
+
+cpp
+Copier
+Modifier
+#pragma once
+
+// Suppress diagnostics for external libraries
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Weverything"
+extern "C" {
+    #include <raylib.h>
+    #include <rlgl.h>
+    #include <raymath.h>
+}
+#pragma clang diagnostic pop
+Step 2: Precompile the Header File
+Using MSVC
+Open a Developer Command Prompt for Visual Studio.
+
+Navigate to the folder containing raylib_pch.h.
+
+Run the following command to generate a precompiled header file (raylib.pch):
+
+cmd
+Copier
+Modifier
+cl /nologo /EHsc /W3 /Fp"raylib.pch" /Yc"raylib_pch.h" raylib_pch.h
+Explanation:
+
+/Fp"raylib.pch": Specifies the output file for the precompiled header.
+/Yc"raylib_pch.h": Tells MSVC to create a precompiled header for raylib_pch.h.
+After this step, MSVC will generate:
+
+raylib.pch: The precompiled header file.
+raylib_pch.obj: An object file associated with the PCH.
+Using w64devkit
+Open the w64devkit shell.
+
+Navigate to the folder containing raylib_pch.h.
+
+Use GCC to create a precompiled header file:
+
+bash
+Copier
+Modifier
+g++ -std=c++17 -x c++-header raylib_pch.h -o raylib.pch
+Explanation:
+
+-x c++-header: Tells GCC to treat the file as a C++ header for precompilation.
+raylib.pch: The output precompiled header file.
+Step 3: Include the Precompiled Header in Your Project
+For MSVC
+In your project settings:
+
+Add raylib.pch as the precompiled header.
+Specify that your source files use the precompiled header with the /Yu"raylib_pch.h" flag.
+Ensure all source files include raylib_pch.h as the first include:
+
+cpp
+Copier
+Modifier
+#include "raylib_pch.h" // Must be the first include
+Example Compilation Command:
+
+cmd
+Copier
+Modifier
+cl /nologo /EHsc /W3 /Yu"raylib_pch.h" main.cpp raylib.pch
+For w64devkit
+Include the precompiled header in your source files:
+
+cpp
+Copier
+Modifier
+#include "raylib.pch" // Include the precompiled header
+Ensure the PCH file is in the include path during compilation.
+
+Example Compilation Command:
+
+bash
+Copier
+Modifier
+g++ -std=c++17 -include raylib.pch main.cpp -o main.exe
+Explanation:
+
+-include raylib.pch: Tells GCC to use the precompiled header.
+Step 4: Integrate with Clangd
+Update your .clangd file to use the PCH:
+
+yaml
+Copier
+Modifier
+CompileFlags:
+  Add: [-include, raylib.pch]
+Make sure the raylib.pch file is in a path accessible to both your compiler and clangd.
+
+Step 5: Verify the Build
+Compile your project using the modified settings for MSVC or w64devkit.
+Confirm that clangd no longer parses the Raylib headers individually but instead uses the precompiled header.
+Optional: Automate PCH Generation
+To avoid manually creating the PCH, you can add it to your build system:
+
+For MSVC: Add a rule in the project settings to generate the PCH during the build process.
+For Makefiles with w64devkit:
+makefile
+Copier
+Modifier
+raylib.pch: raylib_pch.h
+    g++ -std=c++17 -x c++-header raylib_pch.h -o raylib.pch
+
+main: main.cpp raylib.pch
+    g++ -std=c+

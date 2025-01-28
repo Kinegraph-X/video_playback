@@ -1,31 +1,38 @@
 #pragma once
-#include <atomic>
-#include <mutex>
-#include "EventListener"
-#include "Style.h"
+#include "DOM/EventListener.h"
+#include "DOM/Style.h"
 
 class Node : public EventListener {
-private:
+protected:
 	std::mutex nodeMutex;
-    Node* parent;
-    std::vector<std::unique_ptr<Node>> children;
+	
+private:
+    void initNodeEventTypes();
+    
+//    void bubbleEvent(const EventPayload& payload);
+
+public:
+	Node* parent;
+    std::vector<Node*> children;
     Style* style;
     Texture2D texture;  // Uninitialized Texture2D
     bool textureInitialized;
     std::string textContent;
-
-public:
-    Node(Node* parent = nullptr, char* id = nullptr, char* className = nullptr) : parent(parent);
+    
+    Node(Node* parent = nullptr, char* id = nullptr, char* className = nullptr);
     ~Node();
 	
 	char* id = "";
 	char* className = "";
 
     void setParent(Node* newParent);
+    Node* getParent();
 
-    void addChild(std::unique_ptr<Node> child);
+    void addChild(Node* child);
     
     void removeChild(Node* child);
+    
+    std::vector<Node*> getChildren();
     
     void setStyle(const Style& newStyle);
 
@@ -33,17 +40,15 @@ public:
 	
 	void setTextContent(const std::string& text);
     
-    std::string getTextContent() const;
+    std::string getTextContent();
 
 
-    // Texture management
     void setTexture(const Texture2D& newTexture);
+    void setBackgroundColor(RaylibColor color);
+    void setBorderColor(RaylibColor color);
+    void setTextColor(RaylibColor color);
+    void setBackgroundImage(std::string name);
     
-    void initNodeEventTypes();
+    void dispatchEvent(const EventPayload& payload);
     
-    void dispatchEvent(Node* root, Node* target, const EventPayload& payload);
-
-    void bubbleEvent(const EventPayload& payload);
-
-    // Other methods...
 };

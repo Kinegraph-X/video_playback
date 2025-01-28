@@ -1,9 +1,11 @@
 #pragma once
 #include "Checkbox.h"
 
-Checkbox::Checkbox(Node* parent = nullptr) : Clickable(parent), isChecked(false) {}
+Checkbox::Checkbox(Node* parent, char* id, char* className) : Clickable(parent), isChecked(false) {}
 
-void Checkbox::onRelease() override {
+void Checkbox::onPress() {}
+
+void Checkbox::onRelease() {
     isChecked.store(!isChecked);
     updateAppearance();
 }
