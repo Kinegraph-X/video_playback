@@ -1,6 +1,7 @@
 #include "StyleManager.h"
 
 void StyleManager::addIdStyle(const std::string& id, const Style& style) {
+//	logger(LogLevel::DEBUG, "adding style for ID " + id);
     idStyles[id] = style;
 }
 
@@ -9,13 +10,17 @@ void StyleManager::addClassStyle(const std::string& className, const Style& styl
 }
 
 const Style& StyleManager::getStyle(const std::string& id, const std::string& className) const {
+//	logger(LogLevel::DEBUG, "searching style for ID " + id);
+//	logger(LogLevel::DEBUG, "Found style for ID " + LogUtils::toString(idStyles.count(id)));
     auto idIt = idStyles.find(id);
     if (idIt != idStyles.end()) {
+//		logger(LogLevel::DEBUG, "Found style for ID " + id);
         return idIt->second;
     }
 
     auto classIt = classStyles.find(className);
     if (classIt != classStyles.end()) {
+//        logger(LogLevel::DEBUG, "Found style for className " + className);
         return classIt->second;
     }
 
@@ -23,30 +28,46 @@ const Style& StyleManager::getStyle(const std::string& id, const std::string& cl
 }
 
 std::vector<std::string> StyleManager::getAllBackgroundImageFilenames() {
-        std::unordered_set<std::string> uniqueFilenames;
+    std::unordered_set<std::string> uniqueFilenames;
 
-        // Helper function to add filename if backgroundImage is set
-        auto addFilenameIfSet = [&uniqueFilenames](const Style& style) {
-            if (!style.backgroundImage.empty()) {
-                uniqueFilenames.insert(style.backgroundImage);
-            }
-        };
-
-        // Check id styles
-        for (const auto& [id, style] : idStyles) {
-            addFilenameIfSet(style);
+    auto addFilenameIfSet = [&uniqueFilenames](const Style& style) {
+        if (!style.backgroundImage.value.empty()) {
+            uniqueFilenames.insert(style.backgroundImage.value);
         }
-        // Check class styles
-        for (const auto& [className, style] : classStyles) {
-            addFilenameIfSet(style);
-        }
+    };
 
-        // Convert set to vector
-        std::vector<std::string> result(uniqueFilenames.begin(), uniqueFilenames.end());
-        
-        // Optional: Sort the result for consistent ordering
-        std::sort(result.begin(), result.end());
-
-        return result;
+    for (const auto& [id, style] : idStyles) {
+        addFilenameIfSet(style);
     }
+    for (const auto& [className, style] : classStyles) {
+        addFilenameIfSet(style);
+    }
+
+    std::vector<std::string> result(uniqueFilenames.begin(), uniqueFilenames.end());
+    
+    return result;
+}
+
+void StyleManager::applyStylesToNode(Node* node) {
+        // Apply id styles
+        if (idStyles.count(node->getId()) > 0) {
+            node->setStyle(idStyles[node->getId()]);
+        }
+
+        // Apply class styles
+        for (const auto& className : node->getClassNames()) {
+            if (classStyles.count(className) > 0) {
+                node->setStyle(classStyles[className]);
+            }
+        }
+
+        // Update computed style
+        node->updateComputedStyle();
+
+        // Recursively apply to children
+        for (auto* child : node->getChildren()) {
+            applyStylesToNode(child);
+        }
+    }
+
 

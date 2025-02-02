@@ -3,7 +3,7 @@
 
 
 
-SocketServer::SocketServer(unsigned short port) : port(port), serverSocket(-1), isRunning(false) {}
+SocketServer::SocketServer(unsigned short port, std::atomic<bool>& runningFlag) : port(port), serverSocket(-1), isRunning(runningFlag) {}
 
 SocketServer::~SocketServer() {
     cleanup();
@@ -95,7 +95,8 @@ void SocketServer::handleClient(SOCKET clientSocket) {
 std::string SocketServer::receiveCommand() {
     std::unique_lock<std::mutex> lock(commandQueueMutex);
     commandQueueCondition.wait(lock, [this] { return !commandQueue.empty() || !isRunning; });
-
+//	logger(LogLevel::DEBUG, "SocketServer::cleanup condition variable released");
+	
     if (!commandQueue.empty()) {
         std::string command = commandQueue.front();
         commandQueue.pop();
@@ -107,8 +108,10 @@ std::string SocketServer::receiveCommand() {
 
 void SocketServer::stop() {
 	std::lock_guard<std::mutex> lock(commandQueueMutex);
-	if (isRunning) {
-		isRunning = false;
+	if (isRunning.load(std::memory_order_acquire)) {
+		logger(LogLevel::DEBUG, "SocketServer::cleanup stopping the listener loop...");
+		isRunning.store(false, std::memory_order_release);
+		logger(LogLevel::DEBUG, "SocketServer::cleanup isRunning changed");
 		commandQueueCondition.notify_all();
 	}
 }
@@ -121,7 +124,7 @@ void SocketServer::cleanup() {
 		stop();
 	
 	    // Give threads a moment to see the isRunning flag
-	    std::this_thread::sleep_for(std::chrono::milliseconds(30));
+	    std::this_thread::sleep_for(std::chrono::milliseconds(60));
 	
 	    // Then close the server socket
 	    int ret = closesocket(serverSocket);

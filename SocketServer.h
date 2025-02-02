@@ -14,7 +14,7 @@
 
 class SocketServer {
 public:
-    SocketServer(unsigned short port);
+    SocketServer(unsigned short port, std::atomic<bool>& runningFlag);
     ~SocketServer();
 
     bool start();
@@ -28,7 +28,7 @@ private:
 
     SOCKET serverSocket;
     int port;
-    std::atomic<bool> isRunning;
+    std::atomic<bool>& isRunning;
     bool isAborted = false;
 
     std::thread listeningThread;

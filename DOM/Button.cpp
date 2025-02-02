@@ -1,7 +1,7 @@
 #pragma once
 #include "Button.h"
 
-Button::Button(Node* parent, char* id, char* className) : Clickable(parent) {}
+Button::Button(Node* parent, std::string id, std::vector<std::string> className) : Clickable(parent) {}
 
 void Button::onPress() {
     

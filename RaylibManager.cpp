@@ -1,12 +1,18 @@
 #include "RaylibManager.h"
 
 
-RaylibManager::RaylibManager(int width, int height, int titleHeight, int uiHeight, BasicLayout layoutInstance)
-    : windowWidth(width), windowHeight(height), titleBarHeight(titleHeight), uiBarHeight(uiHeight), basicLayout(layoutInstance) {
-		
-    RaylibInitWindow(windowWidth, windowHeight, "RaylibManager Example");
+RaylibManager::RaylibManager(int width, int height, int titleHeight, int uiHeight, BasicLayout& layoutInstance, ImageRescaler& resizer, char* title)
+    : windowWidth(width), windowHeight(height), titleBarHeight(titleHeight), uiBarHeight(uiHeight), layout(layoutInstance), rescaler(resizer) {
+	
+	renderableNodes = layout.renderableNodes;
+	RaylibSetConfigFlags(RAYLIB_FLAG_WINDOW_TRANSPARENT);	
+    RaylibInitWindow(windowWidth, windowHeight, title);
+    
     // Initialize video texture
-    videoTexture = RaylibLoadTextureFromImage(RaylibGenImageColor(windowWidth, windowHeight - titleBarHeight - uiBarHeight, RAYLIB_BLACK));
+    reflectWindowResizeOnVideo();
+    RaylibBeginDrawing();
+    RaylibClearBackground(RAYLIB_BLANK);
+    RaylibEndDrawing();
 }
 
 void RaylibManager::reflectWindowResizeOnVideo() {
@@ -14,8 +20,12 @@ void RaylibManager::reflectWindowResizeOnVideo() {
     RaylibUnloadTexture(videoTexture);
 
     // Calculate new video texture dimensions
-    int videoHeight = windowHeight - titleBarHeight - uiBarHeight;
-    videoTexture = RaylibLoadTextureFromImage(RaylibGenImageColor(windowWidth, videoHeight, RAYLIB_BLACK));
+    videoTextureWidth = windowWidth;
+    videoTextureHeight = windowHeight - titleBarHeight - uiBarHeight;
+    RaylibImage image = RaylibGenImageColor(videoTextureWidth, videoTextureHeight, RAYLIB_BLANK);
+    RaylibImageFormat(&image, RAYLIB_PIXELFORMAT_UNCOMPRESSED_R8G8B8); 
+    videoTexture = RaylibLoadTextureFromImage(image);
+    RaylibUnloadImage(image);
 }
 
 void RaylibManager::resizeWindow(const WindowSizeOffset &offset) {
@@ -27,78 +37,207 @@ void RaylibManager::resizeWindow(const WindowSizeOffset &offset) {
     if (windowWidth < 100) windowWidth = 100;
     if (windowHeight < titleBarHeight + uiBarHeight + 100) windowHeight = titleBarHeight + uiBarHeight + 100;
 
-    // Resize the window
     RaylibSetWindowSize(windowWidth, windowHeight);
-
-    // Reflect changes on video texture
     reflectWindowResizeOnVideo();
 }
 
-void RaylibManager::acquireRenderableNodes(std::vector<RenderableNode>* nodes) {
-	renderableNodes = nodes;
+void RaylibManager::resizeWindowFileLoaded(AVCodecContext* codecContext, const WindowSize* windowSize) {
+	windowWidth = windowSize->width;
+	windowHeight = windowSize->height;
+	reflectWindowResizeOnVideo();
+    const WindowSize textureSize{videoTextureWidth, videoTextureHeight};
+	resetRescaler(codecContext, textureSize);
 }
 
-void RaylibManager::render() {
-    RaylibBeginDrawing();
-    RaylibClearBackground(RAYLIB_RAYWHITE);
+void RaylibManager::resetRescaler(AVCodecContext* codecContext, const WindowSize windowSize) {
+	rescaler.initializeSwsContext(codecContext, &windowSize);
+	frameBuffer = new uint8_t[windowSize.width * windowSize.height * 3]();
+}
 
-    // Render all nodes in the renderableNodes vector
-    for (const auto& renderable : *renderableNodes) {
-        renderNode(renderable.node);
+void RaylibManager::copyFrameDataWithoutPadding(AVFrame* scaledFrame) {
+    if (!scaledFrame || !frameBuffer) {
+        logger(LogLevel::ERR, "Invalid frame or buffer pointer.");
+        return;
     }
 
-    // Force raylib to draw its internal batch before we potentially add ImGui
-    rlDrawRenderBatchActive();
+    int srcStride = scaledFrame->linesize[0];  // Source stride (includes padding)
+    int dstStride = videoTextureWidth * 3;  // Expected stride (packed RGB format)
 
-    // If using ImGui, render it here
-    // ImGui::Render();
-    // ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+    uint8_t* srcPtr = scaledFrame->data[0];  // Start of frame data
+    uint8_t* dstPtr = frameBuffer;  // Destination buffer
+
+    // Copy each row, ignoring the padding
+    for (int y = 0; y < videoTextureHeight; y++) {
+        memcpy(dstPtr, srcPtr, dstStride);  // Copy only the valid pixels
+        srcPtr += srcStride;  // Move to the next row in the source (respecting stride)
+        dstPtr += dstStride;  // Move to the next row in the destination
+    }
+
+    logger(LogLevel::DEBUG, "Frame copied without padding. Width: " + std::to_string(videoTexture.width) + ", Height: " + std::to_string(videoTexture.height));
+}
+
+
+void RaylibManager::render(bool shouldEndDrawing) {
+    RaylibBeginDrawing();
+    RaylibClearBackground(RAYLIB_BLANK);
+
+    // Render all nodes in the renderableNodes vector
+    for (const auto* renderable : *renderableNodes) {
+		renderable->node->updateComputedStyle();
+        renderNode(renderable->node);
+    }
+    if (shouldEndDrawing) {
+		RaylibEndDrawing();
+	}
+}
+
+void RaylibManager::renderFrame(AVFrame* frame) {
+    if (!frame) return;
+    
+    // Render the UI
+    render(false);
+    
+    
+    WindowSize windowSize {
+		windowWidth,
+		windowHeight
+	};
+
+    // Ensure frame matches texture dimensions
+    if (frame->format != AV_PIX_FMT_RGB24 || frame->width != videoTexture.width || frame->height != videoTexture.height) {
+		AVFrame* scaledFrame = rescaler.rescaleFrame(frame, windowSize);
+//		logger(LogLevel::DEBUG, "Width of the rescaled frame : " + std::to_string(scaledFrame->width));
+//		logger(LogLevel::DEBUG, "Height of the rescaled frame : " + std::to_string(scaledFrame->height));
+//		logger(LogLevel::DEBUG, "Width of the texture : " + std::to_string(videoTexture.width));
+//		logger(LogLevel::DEBUG, "Height of the texture : " + std::to_string(videoTexture.height));
+//		logger(LogLevel::DEBUG, "Pixel format of the frame : " + std::to_string(scaledFrame->format));
+//		logger(LogLevel::DEBUG, "plane 0 size of the line : " + std::to_string(scaledFrame->linesize[0]));
+//		logger(LogLevel::DEBUG, "plane 1 size of the line : " + std::to_string(scaledFrame->linesize[1]));
+//		logger(LogLevel::DEBUG, "plane 2 size of the line : " + std::to_string(scaledFrame->linesize[2]));
+//		logger(LogLevel::DEBUG, "plane 0 size of the buffer : " + std::to_string(sizeof(*scaledFrame->data[0])));
+//		logger(LogLevel::DEBUG, "plane 1 size of the buffer : " + std::to_string(sizeof(*scaledFrame->data[1])));
+//		logger(LogLevel::DEBUG, "plane 2 size of the buffer : " + std::to_string(sizeof(*scaledFrame->data[2])));
+//		logger(LogLevel::DEBUG, "Pixel format of videoTexture: " + std::to_string(videoTexture.format));
+
+//		if (!scaledFrame->data[0]) {
+//		    logger(LogLevel::ERR, "scaledFrame->data[0] is NULL! Cannot update texture.");
+//		}
+		
+//		logger(LogLevel::DEBUG, "Attempting to update texture...");
+//		logger(LogLevel::DEBUG, "Memory address of frame data: " + std::to_string(reinterpret_cast<uintptr_t>(scaledFrame->data[0])));
+//		try {
+//		    volatile uint8_t testRead = *(scaledFrame->data[0]); // Attempt to read the first byte
+//		    logger(LogLevel::DEBUG, "Memory read test passed: " + std::to_string(testRead));
+//		} catch (...) {
+//		    logger(LogLevel::ERR, "Memory read test failed! Possible invalid pointer access.");
+//		    return;
+//		}
+		copyFrameDataWithoutPadding(scaledFrame);
+		RaylibUpdateTexture(videoTexture, frameBuffer);
+    }
+    else {
+		copyFrameDataWithoutPadding(frame);
+		RaylibUpdateTexture(videoTexture, frameBuffer);		
+	}
+
+    // Begin drawing is called in the "render()" method
+
+    // Draw video
+    RaylibDrawTextureRec(videoTexture, {0, 0, (float)videoTexture.width, (float)videoTexture.height}, {0, 0}, RAYLIB_WHITE);
 
     RaylibEndDrawing();
 }
 
 void RaylibManager::renderNode(Node* node) {
-    Style& style = node->getStyle();
-
+    ComputedStyle& style = node->getComputedStyle();
+	
+	RoundedRectangleParams rectangleParams;
     // Draw background
-    RaylibDrawRectangleRec(style.bounds, style.backgroundColor);
-
-    // Draw border
-    if (style.borderWidth > 0) {
-        RaylibDrawRectangleLinesEx(style.bounds, style.borderWidth, style.borderColor);
+    if (style.borderRadius.value > 0) {
+		rectangleParams = calculateRoundedRectangleParams(style.bounds.value, style.borderRadius.value);
+    	RaylibDrawRectangleRounded(
+			style.bounds.value,
+			rectangleParams.roundness,
+			rectangleParams.segments, 
+			style.backgroundColor.value
+		);
     }
-
-    // Draw text content
-    RaylibDrawText(node->getTextContent().c_str(),
-             style.bounds.x, style.bounds.y,
-             style.fontSize, style.textColor);
+    else {
+		RaylibDrawRectangleRec(style.bounds.value, style.backgroundColor.value);
+	}
 
     // If node has a background image, draw it
-    if (!style.backgroundImage.empty()) {
+    if (!style.backgroundImage.value.empty()) {
         // Assuming we have a method to load/cache textures
-        Texture2D texture = textureCache.getTexture(style.backgroundImage);
-        RaylibDrawTextureRec(texture, style.bounds, {style.bounds.x, style.bounds.y}, RAYLIB_WHITE);
+        Texture2D texture = textureCache.getTexture(style.backgroundImage.value);
+        RaylibDrawTextureRec(texture, style.bounds.value, {style.bounds.value.x, style.bounds.value.y}, RAYLIB_WHITE);
     }
+    
+    // Draw border
+    if (style.borderWidth.value > 0) {
+		if (style.borderRadius.value > 0) {
+			if (rectangleParams.roundness == 0) {
+				rectangleParams = calculateRoundedRectangleParams(style.bounds.value, style.borderRadius.value);
+			}
+			RaylibDrawRectangleRoundedLinesEx(
+				style.bounds.value,
+				rectangleParams.roundness,
+				rectangleParams.segments,
+				style.borderWidth.value,
+				style.borderColor.value
+			);
+		}
+		else {
+	        RaylibDrawRectangleLinesEx(
+				style.bounds.value,
+				style.borderWidth.value,
+				style.borderColor.value
+			);
+		}
+    }
+    
+    // Draw text content
+    RaylibDrawText(
+		node->getTextContent().c_str(),
+		style.bounds.value.x,
+		style.bounds.value.y,
+		style.fontSize.value,
+		style.textColor.value
+	);
 
-    // Render child nodes recursively
-    for (auto* child : node->getChildren()) {
-        renderNode(child);
-    }
 }
 
-void RaylibManager::dispatchEvent(const RaylibVector2& position, const EventPayload& payload) {
-    Node* target = basicLayout.findTargetNode(position);
-    if (target) {
-        target->dispatchEvent(payload);
-    }
+RoundedRectangleParams RaylibManager::calculateRoundedRectangleParams(RaylibRectangle bounds, int borderRadius) {
+    RoundedRectangleParams params;
+
+	#if defined(_WIN32)
+    params.roundness = max(0.0f, min(1.0f, static_cast<float>(borderRadius) / min(bounds.width, bounds.height)));
+    params.segments = max(4, min(32, borderRadius / 2));
+    #else
+    params.roundness = std::max(0.0f, std::min(1.0f, static_cast<float>(borderRadius) / std::min(bounds.width, bounds.height)));
+    params.segments = std::max(4, std::min(32, borderRadius / 2))
+    #endif
+
+    return params;
 }
+
+
+//void RaylibManager::dispatchEvent(const RaylibVector2& position, const EventPayload& payload) {
+//    Node* target = layout.findTargetNode(position);
+//    if (target) {
+//        target->dispatchEvent(payload);
+//    }
+//}
 
 
 void RaylibManager::cleanup() {
+	aborted = true;
+	if (frameBuffer) {
+		delete[] frameBuffer;
+	}
     RaylibUnloadTexture(videoTexture);
-    RaylibCloseWindow();
 }
 
 RaylibManager::~RaylibManager() {
-    cleanup();
+	if (!aborted) cleanup();
 }

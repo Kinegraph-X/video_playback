@@ -4,8 +4,8 @@
 
 
 CommandProcessor::CommandProcessor(std::atomic<bool>& runningFlag, AudioDevice* audioDevice, unsigned short socketPort)
-    : isRunning(runningFlag), audioDevice(audioDevice), socketServer(socketPort) {
-		
+    : isRunning(runningFlag), audioDevice(audioDevice), socketServer(socketPort, runningFlag) {
+	
     if (!socketServer.start()) {
         logger(LogLevel::ERR, "Failed to start TCP server");
     }
@@ -16,6 +16,7 @@ CommandProcessor::~CommandProcessor() {
 }
 
 void CommandProcessor::listeningLoop() {
+//	std::unique_lock<std::mutex> lock(mutex);
     while (isRunning.load(std::memory_order_acquire)) {
 //		if (activeHandlerId != -1) {
 //			logger(LogLevel::DEBUG, "STATE of playerThread : " + LogUtils::toString(playerThreads[activeHandlerId].joinable()));
@@ -23,7 +24,9 @@ void CommandProcessor::listeningLoop() {
 //		}
         std::string command = socketServer.receiveCommand();
         if (command.empty()) {
+//			lock.unlock();
 			std::this_thread::sleep_for(std::chrono::milliseconds(1));
+//			lock.lock();
 			continue;
 		}
 		
@@ -154,6 +157,7 @@ void CommandProcessor::setAbort() {
 	logger(LogLevel::DEBUG, "CommandProcessor::setAbort called, aborted is : " + LogUtils::toString(aborted));
 	if (!aborted) {
 		logger(LogLevel::DEBUG, "CommandProcessor should abort");
+//		isRunning.store(false, std::memory_order_release);
 		aborted = true;
 		abort();
 	}

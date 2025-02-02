@@ -20,6 +20,8 @@
 #include <cstdlib> // IWYU pragma: export
 #include <iostream> // IWYU pragma: export
 #include <string> // IWYU pragma: export
+#include <string_view> // IWYU pragma: export
+#include <algorithm> // IWYU pragma: export
 #include <atomic> // IWYU pragma: export
 #include <mutex> // IWYU pragma: export
 #include <functional> // IWYU pragma: export
@@ -27,9 +29,9 @@
 #include<unordered_map> // IWYU pragma: export
 #include <unordered_set> // IWYU pragma: export
 #include <queue> // IWYU pragma: export
+#include <variant> // IWYU pragma: export
+#include <filesystem> // IWYU pragma: export
 
-
-//#include "DOM\EventListener.h"
 
 extern "C" {
     #include <libavformat/avformat.h>
@@ -65,6 +67,6 @@ extern "C" {
 
 #define ORIGINAL_WNDPROC_PROP "originalWndProc"
 
-//#include "pugiXML/pugixml.hpp"
+#include "pugiXML/pugixml.hpp"
 #include "logger.h"  // IWYU pragma: export
 #include "constants.h" // IWYU pragma: export

@@ -7,7 +7,7 @@ private:
     std::mutex checkboxMutex;
 
 public:
-    Checkbox(Node* parent = nullptr, char* id = nullptr, char* className = nullptr);
+    Checkbox(Node* parent = nullptr, std::string id = "", std::vector<std::string> className = std::vector<std::string>());
 	
 	void onPress() override;
     void onRelease() override;

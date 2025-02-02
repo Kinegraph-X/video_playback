@@ -2,7 +2,7 @@
 #include "Clickable.h"
 
 
-Clickable::Clickable(Node* parent, char* id, char* className) : Node(parent), isActive(false) {
+Clickable::Clickable(Node* parent, char* id, char* className) : Node(parent) {
     initEventType(EventType::MouseDown);
     initEventType(EventType::MouseMove);
     initEventType(EventType::MouseUp);
@@ -13,38 +13,6 @@ void Clickable::onRelease() {}
 void Clickable::setOnDragStart(DragCallback callback) { onDragStart = std::move(callback); }
 void Clickable::setOnDragMove(DragCallback callback) { onDragMove = std::move(callback); }
 void Clickable::setOnDragEnd(DragCallback callback) { onDragEnd = std::move(callback); }
-
-void Clickable::setStyle(const Style& newStyle) {
-	std::lock_guard<std::mutex> lock(nodeMutex);
-	if (style) {
-        delete style;
-    }
-    style = new Style(newStyle);  // Create a copy of newStyle on the heap
-    if (cachedStyle) {
-        delete cachedStyle;
-    }
-    cachedStyle = new Style(newStyle);
-}
-
-void Clickable::toggleActive() {
-    isActive = !isActive;
-    updateAppearance();
-}
-
-void Clickable::updateAppearance() {
-    Style& style = getStyle();
-    if (isActive) {
-        setBackgroundColor(cachedStyle->activeBackgroundColor);
-        setBorderColor(cachedStyle->activeBorderColor);
-        setTextColor(cachedStyle->activeTextColor);
-        setBackgroundImage(cachedStyle->activeBackgroundImage);
-    } else {
-        setBackgroundColor(cachedStyle->backgroundColor);
-        setBorderColor(cachedStyle->borderColor);
-        setTextColor(cachedStyle->textColor);
-        setBackgroundImage(cachedStyle->backgroundImage);
-    }
-}
 
 void Clickable::handleClick(const EventPayload& payload) {
     switch (payload.type) {

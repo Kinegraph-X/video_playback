@@ -1,18 +1,20 @@
 #include "InteractionHandler.h"
 
-InteractionHandler::InteractionHandler(EventQueue& queue) : eventQueue(queue){}
+InteractionHandler::InteractionHandler(EventQueue& queue) : eventQueue(queue){
+	
+}
     
 InteractionHandler::~InteractionHandler() {
     stop();
 }
 
-void InteractionHandler::acquireRenderableNodes(std::vector<RenderableNode>* nodes) {
+void InteractionHandler::acquireRenderableNodes(std::vector<RenderableNode*>* nodes) {
 	renderableNodes = nodes;
 }
 
 Node* InteractionHandler::findTargetNode(const RaylibVector2& position) {
-    for (auto it = renderableNodes->rbegin(); it != renderableNodes->rend(); ++it) {
-        if (RaylibCheckCollisionPointRec(position, it->node->style->bounds)) {
+    for (auto it : *renderableNodes) {
+        if (RaylibCheckCollisionPointRec(position, it->node->style->bounds.value)) {
             return it->node;
         }
     }
@@ -27,7 +29,9 @@ void InteractionHandler::handleMouseEvents() {
     if (targetNode) {
         EventPayload payload{EventType::MouseMove};
         payload.mousePosition = mousePosition;
-        eventQueue.pushEvent({targetNode, EventType::MouseMove, payload});
+        UIEvent event(EventType::MouseMove, targetNode);
+        event.payload = payload;
+        eventQueue.pushEvent(event);
     }
 
     // Mouse buttons
@@ -37,7 +41,9 @@ void InteractionHandler::handleMouseEvents() {
                 EventPayload payload{EventType::MouseDown};
                 payload.mousePosition = mousePosition;
                 payload.mouseButton = button;
-                eventQueue.pushEvent({targetNode, EventType::MouseDown, payload});
+                UIEvent event(EventType::MouseMove, targetNode);
+        		event.payload = payload;
+                eventQueue.pushEvent(event);
             }
         }
         if (RaylibIsMouseButtonReleased(button)) {
@@ -45,7 +51,9 @@ void InteractionHandler::handleMouseEvents() {
                 EventPayload payload{EventType::MouseUp};
                 payload.mousePosition = mousePosition;
                 payload.mouseButton = button;
-                eventQueue.pushEvent({targetNode, EventType::MouseUp, payload});
+                UIEvent event(EventType::MouseMove, targetNode);
+        		event.payload = payload;
+                eventQueue.pushEvent(event);
             }
         }
     }
@@ -56,17 +64,25 @@ void InteractionHandler::handleMouseEvents() {
         EventPayload payload{EventType::MouseWheel};
         payload.mousePosition = mousePosition;
         payload.wheelMove = wheelMove;
-        eventQueue.pushEvent({targetNode, EventType::MouseWheel, payload});
+        UIEvent event(EventType::MouseMove, targetNode);
+		event.payload = payload;
+        eventQueue.pushEvent(event);
     }
 }
 
 void InteractionHandler::handleKeyboardEvents() {
+	// We've not yet implemented the handling of focus
+	// For now we'll handle the keyboard in a fake node
+	Node* targetNode; 
+	
     // Key pressed
     int key = RaylibGetKeyPressed();
     if (key != 0) {
         EventPayload payload{EventType::KeyDown};
         payload.keyCode = key;
-        eventQueue.pushEvent({nullptr, EventType::KeyDown, payload});
+        UIEvent event(EventType::MouseMove, targetNode);
+		event.payload = payload;
+        eventQueue.pushEvent(event);
     }
 
     // Key released
@@ -75,7 +91,9 @@ void InteractionHandler::handleKeyboardEvents() {
 	    if (released != 0) {
 	        EventPayload payload{EventType::KeyUp};
 	        payload.keyCode = key;
-	        eventQueue.pushEvent({nullptr, EventType::KeyUp, payload});
+	        UIEvent event(EventType::MouseMove, targetNode);
+    		event.payload = payload;
+	        eventQueue.pushEvent(event);
 	    }
 	}
 
@@ -84,7 +102,9 @@ void InteractionHandler::handleKeyboardEvents() {
     if (charPressed != 0) {
         EventPayload payload{EventType::CharInput};
         payload.charCode = charPressed;
-        eventQueue.pushEvent({nullptr, EventType::CharInput, payload});
+        UIEvent event(EventType::MouseMove, targetNode);
+		event.payload = payload;
+        eventQueue.pushEvent(event);
     }
 }
 

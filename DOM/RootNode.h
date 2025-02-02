@@ -6,5 +6,6 @@ public:
     RootNode();
     
     // Override getParent to return nullptr
+    Node* parent = nullptr;
     Node* getParent() const;
 };

@@ -22,7 +22,7 @@ void ImageRescaler::initializeSwsContext(AVCodecContext* codecContext, const Win
     // Initialize the SwsContext for scaling/conversion.
     swsContext = sws_getContext(
         codecContext->width, codecContext->height, codecContext->pix_fmt, // Source parameters.
-        initial_params->width, initial_params->height, AV_PIX_FMT_YUV420P,   // Target parameters.
+        initial_params->width, initial_params->height, AV_PIX_FMT_RGB24,   // Target parameters.
         SWS_BILINEAR, nullptr, nullptr, nullptr
     );
 
@@ -58,7 +58,7 @@ AVFrame* ImageRescaler::rescaleFrame(AVFrame* frame, const WindowSize& windowSiz
     }
 
     // Set frame properties (format, width, height) using WindowSize dimensions.
-    scaledFrame->format = AV_PIX_FMT_YUV420P;
+    scaledFrame->format = AV_PIX_FMT_RGB24;
     scaledFrame->width = windowSize.width;
     scaledFrame->height = windowSize.height;
 

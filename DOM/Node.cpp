@@ -5,7 +5,8 @@
 // Call with auto node = std::make_unique<Node>(std::move(parentNode), "id", "className");
 // Remember that after moving a unique_ptr, the original pointer becomes null,
 // so ensure we're not using the moved pointer afterwards
-Node::Node(Node* parent, char* id, char* className) : parent(std::move(parent)) {
+Node::Node(Node* parent, std::string id, std::vector<std::string> classNames) 
+		: parent(parent), id(id), classNames(classNames) {
     if (parent) {
         parent->addChild(this);
     }
@@ -19,6 +20,10 @@ Node::~Node() {
         delete style;
         style = nullptr;
     }
+    for (Node* child : children) {
+        delete child;  // Recursively delete all children
+    }
+    children.clear();
 }
 
 
@@ -60,6 +65,24 @@ std::vector<Node*> Node::getChildren() {
 	return children;
 }
 
+std::string Node::getId() {
+	return this->id;
+}
+
+std::vector<std::string> Node::getClassNames() {
+	return this->classNames;
+}
+
+void Node::toggleActive() {
+    isActive = !isActive;
+    updateComputedStyle();
+}
+
+void Node::setHovered(bool hovered) {
+    isHovered = hovered;
+    updateComputedStyle();
+}
+
 void Node::setStyle(const Style& newStyle) {
 	std::lock_guard<std::mutex> lock(nodeMutex);
 	if (style) {
@@ -74,7 +97,83 @@ Style& Node::getStyle() {
 	return *style;
 }
 
-void Node::setTextContent(const std::string& text) {
+ComputedStyle& Node::getComputedStyle() {
+	std::lock_guard<std::mutex> lock(nodeMutex);
+	return computedStyle;
+}
+
+void Node::updateComputedStyle() {
+	std::lock_guard<std::mutex> lock(nodeMutex);
+	logger(LogLevel::DEBUG, "random style prop name : " + style->position.name);
+	for (const auto& property : computedStyle) {
+		
+		std::visit([this](const auto& prop) {
+			if (prop.get().name.empty()) {
+				logger(LogLevel::ERR, "while accessing name of ComputedStyle property : " + prop.get().name);
+				return;
+			}
+			const auto* styleProp = std::get_if<std::decay_t<decltype(prop.get())>>(&(*style)[prop.get().name]);
+			prop.get().setValue(styleProp->value);
+		}, property);
+	}
+	logger(LogLevel::DEBUG, "updated main values of computed style for node id : " + id);
+	if (isHovered) {
+        if (!style->hoverBounds.isDefault) computedStyle.bounds.setValue(style->hoverBounds.value);
+        if (!style->hoverBackgroundColor.isDefault) computedStyle.backgroundColor.setValue(style->hoverBackgroundColor.value);
+        if (!style->hoverBorderWidth.isDefault) computedStyle.borderWidth.setValue(style->hoverBorderWidth.value);
+        if (!style->hoverBorderColor.isDefault) computedStyle.borderColor.setValue(style->hoverBorderColor.value);
+        if (!style->hoverTextColor.isDefault) computedStyle.textColor.setValue(style->hoverTextColor.value);
+        if (!style->hoverBackgroundImage.isDefault) computedStyle.backgroundImage.setValue(style->hoverBackgroundImage.value);
+    }
+
+    // Apply active styles if active (overrides hover styles)
+    if (isActive) {
+        if (!style->activeBounds.isDefault) computedStyle.bounds.setValue(style->activeBounds.value);
+        if (!style->activeBackgroundColor.isDefault) computedStyle.backgroundColor.setValue(style->activeBackgroundColor.value);
+        if (!style->activeBorderWidth.isDefault) computedStyle.borderWidth.setValue(style->activeBorderWidth.value);
+        if (!style->activeBorderColor.isDefault) computedStyle.borderColor.setValue(style->activeBorderColor.value);
+        if (!style->activeTextColor.isDefault) computedStyle.textColor.setValue(style->activeTextColor.value);
+        if (!style->activeBackgroundImage.isDefault) computedStyle.backgroundImage.setValue(style->activeBackgroundImage.value);
+    }
+    
+//    applyInheritedStyles();
+}
+
+void Node::applyInheritedStyles() {
+	std::lock_guard<std::mutex> lock(nodeMutex);
+	for (const auto& property : computedStyle) {
+		std::visit([this](const auto& prop) {
+	        if (std::find(INHERITED_PROPERTIES.begin(), INHERITED_PROPERTIES.end(), prop.get().name) != INHERITED_PROPERTIES.end()) {
+                // We must ensure `prop` and `parentProp` are compatible, as they inherit from different templates
+//				const auto& parentPropVariant = (*parent->style)[prop.name];
+//				std::visit([this, &prop](const auto &parentProp) {
+//  					using PropType = std::decay_t<decltype(prop)>;
+//  					using ParentPropType = std::decay_t<decltype(parentProp)>;
+////  					auto* propPtr = std::get_if<PropType>(&(*style)[prop.name]);
+//
+//  					if constexpr (std::is_same_v<PropType, ParentPropType>) {
+////						if (propPtr) {
+//    					prop.setValue(parentProp.value);
+//  					
+////						ParentPropType modifiedProp = *propPtr;  // Create a mutable copy
+////				        modifiedProp.setValue(parentProp.value);
+////				        (*style)[parentProp.name] = modifiedProp;
+////				        }
+//			        }
+//				},
+//				parentPropVariant);
+
+				// Alternative
+				const auto* parentProp = std::get_if<std::decay_t<decltype(prop.get())>>(&(*parent->style)[prop.get().name]);
+				if (parentProp && prop.get().isDefault) {
+                    prop.get().setValue(parentProp->value);
+                }
+			}
+	    }, property);
+	}
+}
+
+void Node::setTextContent(const std::string text) {
     std::lock_guard<std::mutex> lock(nodeMutex);
     textContent = text;
 }

@@ -15,12 +15,6 @@ public:
     void setOnDragEnd(DragCallback callback);
 
     
-    void setStyle(const Style& newStyle);
-
-	void toggleActive();
-
-    void updateAppearance();
-    
     void handleClick(const EventPayload& payload);
 
     void handleEvent(const EventPayload& payload);
@@ -28,10 +22,7 @@ public:
 protected:
     RaylibVector2 dragStartPosition;
     RaylibVector2 lastDragPosition;
-	std::atomic<bool> isActive{false};
-    std::atomic<bool> isDragging{false};
 	std::mutex dragMutex;
-	Style* cachedStyle;
 	
 	RaylibVector2 getDragDelta();
 	DragCallback onDragStart;

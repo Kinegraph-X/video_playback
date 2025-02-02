@@ -8,8 +8,9 @@ SDLManager::~SDLManager() {
 }
 
 // Initialize SDL (video, audio, etc.)
-bool SDLManager::initialize(ImageRescaler* rescaler) {
-	int ret = SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_TIMER | SDL_INIT_EVENTS);
+bool SDLManager::initialize() {
+//	int ret = SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_TIMER | SDL_INIT_EVENTS);
+	int ret = SDL_Init(SDL_INIT_AUDIO | SDL_INIT_TIMER | SDL_INIT_EVENTS);
 	if (ret < 0) {
 		logger(LogLevel::ERR, std::string("SDL failed to start : ") + std::string(SDL_GetError()));
 	}
@@ -17,51 +18,55 @@ bool SDLManager::initialize(ImageRescaler* rescaler) {
 		logger(LogLevel::INFO, std::string("SDL successfully started"));
 	}
 	
-	SDL_SetHint(SDL_HINT_RENDER_DRIVER, "opengl");
+//	SDL_SetHint(SDL_HINT_RENDER_DRIVER, "opengl");
 
-	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 1);
-	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 1);
+//	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 1);
+//	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 1);
 	
-	this->rescaler = rescaler;
+//	this->rescaler = rescaler;
+
+	audioDevice = new AudioDevice();
+	audioDevice->startAudioDevice();
+	
 	return true;
 }
 
 // Start method: sets up SDL_Window, SDL_Renderer, and SDL_Texture
 bool SDLManager::start(int xpos, int ypos, int width, int height, char title[]) {
-	windowWidth = width;
+//	windowWidth = width;
+//	
+//	this->window = SDL_CreateWindow(
+//		title,
+//		xpos,
+//		ypos,
+//		width,
+//		height + this->titleBarHeight,
+//		SDL_WINDOW_RESIZABLE //| SDL_WINDOW_BORDERLESS // SDL_WINDOW_OPENGL
+//	);
+//	
+//	if (!window) {
+//        logger(LogLevel::ERR, "Failed to create SDL window: " + std::string(SDL_GetError()));
+//        SDL_Quit();
+//        return false;
+//    }
+//    this->window_id = SDL_GetWindowID(this->window);
+//    hwnd = this->getNativeWindowHandle();
+////    SetWindowLong(hwnd, GWL_EXSTYLE, GetWindowLong(hwnd, GWL_EXSTYLE) | WS_EX_LAYERED);
+//    
+//    // Create renderer
+//    if (!initRenderer()) {
+//        cleanup();
+//        return false;
+//    }
+//
+//    // Prepare textures for video and custom title bar
+//    if (!initTextures(width, height)) {
+//        cleanup();
+//        return false;
+//    }
 	
-	this->window = SDL_CreateWindow(
-		title,
-		xpos,
-		ypos,
-		width,
-		height + this->titleBarHeight,
-		SDL_WINDOW_RESIZABLE //| SDL_WINDOW_BORDERLESS // SDL_WINDOW_OPENGL
-	);
-	
-	if (!window) {
-        logger(LogLevel::ERR, "Failed to create SDL window: " + std::string(SDL_GetError()));
-        SDL_Quit();
-        return false;
-    }
-    this->window_id = SDL_GetWindowID(this->window);
-    hwnd = this->getNativeWindowHandle();
-//    SetWindowLong(hwnd, GWL_EXSTYLE, GetWindowLong(hwnd, GWL_EXSTYLE) | WS_EX_LAYERED);
-    
-    // Create renderer
-    if (!initRenderer()) {
-        cleanup();
-        return false;
-    }
-
-    // Prepare textures for video and custom title bar
-    if (!initTextures(width, height)) {
-        cleanup();
-        return false;
-    }
-	
-	audioDevice = new AudioDevice();
-	audioDevice->startAudioDevice();
+//	audioDevice = new AudioDevice();
+//	audioDevice->startAudioDevice();
 	
 //	render();
 	
@@ -165,7 +170,7 @@ void SDLManager::resizeWindowFileLoaded(AVCodecContext* codecContext, const Wind
 }
 
 void SDLManager::resetRescaler(AVCodecContext* codecContext, const WindowSize* initialParams) {
-	rescaler->initializeSwsContext(codecContext, initialParams);
+//	rescaler->initializeSwsContext(codecContext, initialParams);
 }
 
 void SDLManager::updateTextureFromFrame(AVFrame* frame) {
@@ -185,17 +190,17 @@ void SDLManager::updateTextureFromFrame(AVFrame* frame) {
     if (frame->format != AV_PIX_FMT_YUV420P || frame->width != windowSize.width || frame->height != windowSize.height) {
 //        logger(LogLevel::DEBUG, "Unsupported pixel format. Will rescale...");
         
-		AVFrame* scaledFrame = rescaler->rescaleFrame(frame, windowSize);
-		clampLuminance(scaledFrame, 20);
-		
-		result = SDL_UpdateYUVTexture(
-	        videoTexture,
-	        nullptr,                       // Update the entire texture.
-	        scaledFrame->data[0], scaledFrame->linesize[0], // Y plane.
-	        scaledFrame->data[1], scaledFrame->linesize[1], // U plane.
-	        scaledFrame->data[2], scaledFrame->linesize[2]  // V plane.
-	    );
-	    av_frame_free(&scaledFrame);
+//		AVFrame* scaledFrame = rescaler->rescaleFrame(frame, windowSize);
+//		clampLuminance(scaledFrame, 20);
+//		
+//		result = SDL_UpdateYUVTexture(
+//	        videoTexture,
+//	        nullptr,                       // Update the entire texture.
+//	        scaledFrame->data[0], scaledFrame->linesize[0], // Y plane.
+//	        scaledFrame->data[1], scaledFrame->linesize[1], // U plane.
+//	        scaledFrame->data[2], scaledFrame->linesize[2]  // V plane.
+//	    );
+//	    av_frame_free(&scaledFrame);
     }
 	else {
 		clampLuminance(frame, 20);

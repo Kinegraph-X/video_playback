@@ -9,7 +9,7 @@ public:
     SDLManager(int titleBarHeight);
     ~SDLManager();
 
-    bool initialize(ImageRescaler* rescaler);
+    bool initialize();
 
     // sets up SDL_Window, SDL_Renderer, and SDL_Texture
     bool start(int xpos, int ypos, int width, int height, char title[]);
@@ -45,7 +45,6 @@ private:
     
     bool initialized;
     bool started;
-    ImageRescaler* rescaler;
     
     int windowWidth = 0;
     int titleBarHeight = 31;

@@ -8,7 +8,7 @@ private:
     std::thread handlerThread;
     std::atomic<bool> running{true};
     EventQueue& eventQueue;
-    std::vector<RenderableNode>* renderableNodes;
+    std::vector<RenderableNode*>* renderableNodes;
 
     Node* findTargetNode(const RaylibVector2& position);
 
@@ -23,7 +23,7 @@ public:
 
     void start();
     void stop();
-    void acquireRenderableNodes(std::vector<RenderableNode>* renderableNodes);
+    void acquireRenderableNodes(std::vector<RenderableNode*>* renderableNodes);
 
     ~InteractionHandler();
 };

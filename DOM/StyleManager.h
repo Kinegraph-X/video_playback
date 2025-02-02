@@ -1,5 +1,6 @@
 #pragma once
 #include "../player_headers.h"
+#include "Node.h"
 #include "Style.h"
 
 class StyleManager {
@@ -16,4 +17,6 @@ public:
     const Style& getStyle(const std::string& id, const std::string& className) const;
     
     std::vector<std::string> getAllBackgroundImageFilenames();
+    
+    void applyStylesToNode(Node* node);
 };

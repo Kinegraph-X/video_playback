@@ -1,6 +1,7 @@
 #pragma once
 #include "DOM/EventListener.h"
 #include "DOM/Style.h"
+#include "ComputedStyle.h"
 
 class Node : public EventListener {
 protected:
@@ -12,18 +13,25 @@ private:
 //    void bubbleEvent(const EventPayload& payload);
 
 public:
+	std::string id = "";
+	std::vector<std::string> classNames;
 	Node* parent;
     std::vector<Node*> children;
-    Style* style;
+    Style* style = new Style();
     Texture2D texture;  // Uninitialized Texture2D
     bool textureInitialized;
     std::string textContent;
+    ComputedStyle computedStyle = ComputedStyle();
     
-    Node(Node* parent = nullptr, char* id = nullptr, char* className = nullptr);
+    std::atomic<bool> isActive{false};
+    std::atomic<bool> isHovered{false};
+    std::atomic<bool> isDragging{false};
+    
+    Node(Node* parent = nullptr, std::string id = "", std::vector<std::string> className = std::vector<std::string>());
     ~Node();
 	
-	char* id = "";
-	char* className = "";
+	std::string getId();
+	std::vector<std::string> getClassNames();
 
     void setParent(Node* newParent);
     Node* getParent();
@@ -34,12 +42,17 @@ public:
     
     std::vector<Node*> getChildren();
     
-    void setStyle(const Style& newStyle);
-
-    Style& getStyle();
-	
-	void setTextContent(const std::string& text);
+    void toggleActive();
+	void setHovered(bool hovered);
     
+    void setStyle(const Style& newStyle);
+    Style& getStyle();
+    ComputedStyle& getComputedStyle();
+    
+    void updateComputedStyle();
+    void applyInheritedStyles();
+	
+	void setTextContent(const std::string text);
     std::string getTextContent();
 
 
