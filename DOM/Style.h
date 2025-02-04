@@ -3,10 +3,22 @@
 
 enum class Position {Absolute, Relative};
 
+using PropertyVariant = std::variant<
+    std::reference_wrapper<PropertyValue<Position>>,
+    std::reference_wrapper<PropertyValue<RaylibRectangle>>,
+    std::reference_wrapper<PropertyValue<RaylibColor>>,
+    std::reference_wrapper<PropertyValue<int>>,
+    std::reference_wrapper<PropertyValue<float>>,
+    std::reference_wrapper<PropertyValue<bool>>,
+    std::reference_wrapper<PropertyValue<std::string>>
+>;    
+
 const std::vector<std::string> INHERITED_PROPERTIES = {
     "textColor",
     "fontName",
-    "fontSize"
+    "fontSize",
+    "opacity",
+    "isVisible"
 };
 
 // These are populated in the cpp file
@@ -89,15 +101,16 @@ struct Style {
         hoverBackgroundImage(DefaultStyle::backgroundImage)
     {};
     
-    const std::variant<
-		PropertyValue<Position>,
-		PropertyValue<RaylibRectangle>,
-		PropertyValue<RaylibColor>,
-		PropertyValue<int>,
-		PropertyValue<float>,
-		PropertyValue<bool>,
-		PropertyValue<std::string>
-	>& operator[](const std::string& propName) {
+//	using PropertyVariant = std::variant<
+//	    std::reference_wrapper<PropertyValue<Position>>,
+//	    std::reference_wrapper<PropertyValue<RaylibRectangle>>,
+//	    std::reference_wrapper<PropertyValue<RaylibColor>>,
+//	    std::reference_wrapper<PropertyValue<int>>,
+//	    std::reference_wrapper<PropertyValue<float>>,
+//	    std::reference_wrapper<PropertyValue<bool>>,
+//	    std::reference_wrapper<PropertyValue<std::string>>
+//	>;    
+    const PropertyVariant operator[](const std::string& propName) {
 	    if (propName == "position") return position;
 	    if (propName == "bounds") return bounds;
 	    if (propName == "zIndex") return zIndex;
@@ -138,15 +151,6 @@ struct Style {
 	    public:
         Iterator(Style* s, size_t i) : style(s), index(i) {}
 		
-		using PropertyVariant = std::variant<
-			PropertyValue<Position>,
-			PropertyValue<RaylibRectangle>,
-			PropertyValue<RaylibColor>,
-			PropertyValue<int>,
-			PropertyValue<float>,
-			PropertyValue<bool>,
-			PropertyValue<std::string>
-		>;
 		const PropertyVariant operator*() {
 //			static PropertyVariant errorValue;
             // Return the appropriate property based on index

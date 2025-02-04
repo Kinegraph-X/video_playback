@@ -30,6 +30,7 @@ void EventListener::removeEventListener(EventType type, EventHandler handler) {
 }
 
 void EventListener::handleEvent(const EventPayload& payload) {
+//	logger(LogLevel::DEBUG, "HANDLE EVENT CALLED");
     auto it = eventHandlers.find(payload.type);
     if (it != eventHandlers.end()) {
         for (const auto& handler : it->second) {

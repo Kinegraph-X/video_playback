@@ -8,22 +8,23 @@ private:
     std::thread handlerThread;
     std::atomic<bool> running{true};
     EventQueue& eventQueue;
-    std::vector<RenderableNode*>* renderableNodes;
 
     Node* findTargetNode(const RaylibVector2& position);
-
-    void handleMouseEvents();
-
-    void handleKeyboardEvents();
 
     void handlerLoop();
 
 public:
+	std::vector<RenderableNode*>* renderableNodes;
     InteractionHandler(EventQueue& queue);
 
     void start();
     void stop();
     void acquireRenderableNodes(std::vector<RenderableNode*>* renderableNodes);
+    
+    void consumeEvents();
+    void handleShouldClose();
+	void handleMouseEvents();
+    void handleKeyboardEvents();
 
     ~InteractionHandler();
 };

@@ -2,6 +2,7 @@
 
 enum class EventType {
 	None,
+	Close,
     MouseDown,
     MouseUp,
     MouseMove,

@@ -65,12 +65,12 @@ RenderableNode* BasicLayout::getRenderableNode(Node* node, int depth) {
 }
 
 void BasicLayout::positionNode(RenderableNode& renderable) {
-//	logger(LogLevel::DEBUG, "Parent dimensions x : " + std::to_string(parentDimensions.x));
+	logger(LogLevel::DEBUG, "Parent dimensions x : " + std::to_string(parentDimensions.x));
 	logger(LogLevel::DEBUG, "Parent dimensions y : " + std::to_string(parentDimensions.y));
-//	logger(LogLevel::DEBUG, "Parent dimensions width : " + std::to_string(parentDimensions.width));
-//	logger(LogLevel::DEBUG, "Parent dimensions height : " + std::to_string(parentDimensions.height));
+	logger(LogLevel::DEBUG, "Parent dimensions width : " + std::to_string(parentDimensions.width));
+	logger(LogLevel::DEBUG, "Parent dimensions height : " + std::to_string(parentDimensions.height));
 	if (renderable.node->getStyle().position.value == Position::Relative) {
-		logger(LogLevel::DEBUG, "HERE : ");
+		logger(LogLevel::DEBUG, "Updating from parent dimensions");
 		renderable.bounds.x += parentDimensions.x;
 		renderable.bounds.y += parentDimensions.y;
 	}
@@ -92,11 +92,14 @@ std::vector<RenderableNode*>* BasicLayout::getFlattenedNodeTree(Node* root) {
 }
 
 void BasicLayout::cleanup () {
-	delete rootNode;	
 	for (RenderableNode* renderable : *renderableNodes) {
-		delete renderable;
+		if (renderable) {
+			logger(LogLevel::DEBUG, "cleaning renderable");
+			delete renderable;
+		}
 	}
 	if (renderableNodes) {
+		logger(LogLevel::DEBUG, "cleaning renderableNodes");
 		delete renderableNodes;
 	}
 }

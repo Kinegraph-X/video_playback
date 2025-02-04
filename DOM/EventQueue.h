@@ -12,6 +12,8 @@ public:
     void pushEvent(const UIEvent& event);
 
     EventBatch createBatch();
+    
+    void populateBatch(EventBatch& batch);
 };
 
 

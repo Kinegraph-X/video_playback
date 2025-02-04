@@ -30,7 +30,7 @@ struct ComputedStyle {
         fontName(DefaultStyle::fontName),
         isVisible(DefaultStyle::isVisible)
     {
-		logger(LogLevel::DEBUG, "random computedStyle prop name : " + this->position.name);
+//		logger(LogLevel::DEBUG, "random computedStyle prop name : " + this->position.name);
 	};
     
     static constexpr size_t NUMBER_OF_PROPERTIES = 12;

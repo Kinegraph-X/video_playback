@@ -17,6 +17,6 @@ public:
 
     void removeEventListener(EventType type, EventHandler handler);
     
-    void handleEvent(const EventPayload& payload);
+    virtual void handleEvent(const EventPayload& payload);
 };
 

@@ -25,6 +25,10 @@ std::vector<UIEvent> EventBatch::getEvents() {
     return result;
 }
 
+void EventBatch::clear() {
+	events.clear();	
+}
+
 void EventBatch::cleanup() {
     events.clear();
 }

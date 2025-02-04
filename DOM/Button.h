@@ -3,7 +3,7 @@
 
 class Button : public Clickable {
 public:
-    Button(Node* parent = nullptr, std::string id = "", std::vector<std::string> className = std::vector<std::string>());
+    Button(Node* parent = nullptr, std::string id = "", std::vector<std::string> classNames = std::vector<std::string>());
 
     void onPress() override;
 

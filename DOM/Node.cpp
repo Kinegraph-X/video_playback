@@ -10,9 +10,14 @@ Node::Node(Node* parent, std::string id, std::vector<std::string> classNames)
     if (parent) {
         parent->addChild(this);
     }
-    // Initialize common event types
+//    logger(LogLevel::DEBUG, "node classNames length : " + std::to_string(this->classNames.size()));
 }
 Node::~Node() {
+//	logger(LogLevel::DEBUG, "cleaning node id : " + this->id);
+//	if (this->classNames.size() > 0) {
+//		logger(LogLevel::DEBUG, "cleaning node className : " + this->classNames.at(0));
+//	}
+//	logger(LogLevel::DEBUG, "node has children : " + std::to_string(this->children.size()));
     if (textureInitialized) {
         RaylibUnloadTexture(texture);
     }
@@ -21,7 +26,10 @@ Node::~Node() {
         style = nullptr;
     }
     for (Node* child : children) {
+		logger(LogLevel::DEBUG, "cleaning node child");
         delete child;  // Recursively delete all children
+        child = nullptr;
+        logger(LogLevel::DEBUG, "cleaned node child");
     }
     children.clear();
 }
@@ -44,6 +52,8 @@ void Node::setParent(Node* newParent) {
 
 void Node::addChild(Node* child) {
 	std::lock_guard<std::mutex> lock(nodeMutex);
+//	logger(LogLevel::DEBUG, "ADD CHILD CALLED");
+//	logger(LogLevel::DEBUG, "node child count: " + std::to_string(children.size()));
     child->parent = this;
     children.push_back(child);
 }
@@ -75,6 +85,7 @@ std::vector<std::string> Node::getClassNames() {
 
 void Node::toggleActive() {
     isActive = !isActive;
+//    logger(LogLevel::DEBUG, "active state toggled : " + LogUtils::toString(isActive));
     updateComputedStyle();
 }
 
@@ -89,6 +100,7 @@ void Node::setStyle(const Style& newStyle) {
         delete style;
     }
     style = new Style(newStyle);  // Create a copy of newStyle on the heap
+//    logger(LogLevel::DEBUG, "storing value for backgroungImage : " + style->backgroundImage.value);
 }
 
 
@@ -104,7 +116,6 @@ ComputedStyle& Node::getComputedStyle() {
 
 void Node::updateComputedStyle() {
 	std::lock_guard<std::mutex> lock(nodeMutex);
-	logger(LogLevel::DEBUG, "random style prop name : " + style->position.name);
 	for (const auto& property : computedStyle) {
 		
 		std::visit([this](const auto& prop) {
@@ -112,11 +123,14 @@ void Node::updateComputedStyle() {
 				logger(LogLevel::ERR, "while accessing name of ComputedStyle property : " + prop.get().name);
 				return;
 			}
-			const auto* styleProp = std::get_if<std::decay_t<decltype(prop.get())>>(&(*style)[prop.get().name]);
-			prop.get().setValue(styleProp->value);
+			const PropertyVariant propVariant = (*style)[prop.get().name]; 
+			const auto* styleProp = std::get_if<std::reference_wrapper<std::decay_t<decltype(prop.get())>>>(&propVariant);
+//			if (this->id != "")
+//				logger(LogLevel::DEBUG, "updated value in computed style for node id : " + id + " and propName : " + prop.get().name + " with value : " + LogUtils::toString(styleProp->get().value));
+			prop.get().setValue(styleProp->get().value);
 		}, property);
 	}
-	logger(LogLevel::DEBUG, "updated main values of computed style for node id : " + id);
+//	logger(LogLevel::DEBUG, "updated main values of computed style for node id : " + id);
 	if (isHovered) {
         if (!style->hoverBounds.isDefault) computedStyle.bounds.setValue(style->hoverBounds.value);
         if (!style->hoverBackgroundColor.isDefault) computedStyle.backgroundColor.setValue(style->hoverBackgroundColor.value);
@@ -164,9 +178,10 @@ void Node::applyInheritedStyles() {
 //				parentPropVariant);
 
 				// Alternative
-				const auto* parentProp = std::get_if<std::decay_t<decltype(prop.get())>>(&(*parent->style)[prop.get().name]);
+				const PropertyVariant propVariant = (*parent->style)[prop.get().name];
+				const auto* parentProp = std::get_if<std::reference_wrapper<std::decay_t<decltype(prop.get())>>>(&propVariant);
 				if (parentProp && prop.get().isDefault) {
-                    prop.get().setValue(parentProp->value);
+                    prop.get().setValue(parentProp->get().value);
                 }
 			}
 	    }, property);
@@ -185,14 +200,14 @@ std::string Node::getTextContent() {
 
 
 // Texture management
-void Node::setTexture(const Texture2D& newTexture) {
-	std::lock_guard<std::mutex> lock(nodeMutex);
-    if (textureInitialized) {
-        RaylibUnloadTexture(texture);
-    }
-    texture = newTexture;
-    textureInitialized = true;
-}
+//void Node::setTexture(const Texture2D& newTexture) {
+//	std::lock_guard<std::mutex> lock(nodeMutex);
+//    if (textureInitialized) {
+//        RaylibUnloadTexture(texture);
+//    }
+//    texture = newTexture;
+//    textureInitialized = true;
+//}
 
 void Node::initNodeEventTypes() {
     // Initialize additional event types specific to nodes if needed

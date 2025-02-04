@@ -2,7 +2,8 @@
 #include "Clickable.h"
 
 
-Clickable::Clickable(Node* parent, char* id, char* className) : Node(parent) {
+Clickable::Clickable(Node* parent, std::string id, std::vector<std::string> classNames) 
+		: Node(parent, id, classNames) {
     initEventType(EventType::MouseDown);
     initEventType(EventType::MouseMove);
     initEventType(EventType::MouseUp);
@@ -76,9 +77,11 @@ void Clickable::handleClick(const EventPayload& payload) {
 void Clickable::handleEvent(const EventPayload& payload) {
     if (payload.type == EventType::MouseDown) {
         toggleActive();
+//        logger(LogLevel::DEBUG, "CLICKABLE HANDLE EVENT CALLED. Active state is " + LogUtils::toString(isActive));
         onPress();
     } else if (payload.type == EventType::MouseUp) {
         toggleActive();
+//        logger(LogLevel::DEBUG, "CLICKABLE HANDLE EVENT CALLED. Active state is " + LogUtils::toString(isActive));
         onRelease();
     }
     handleClick(payload);

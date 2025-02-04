@@ -73,7 +73,7 @@ void RaylibManager::copyFrameDataWithoutPadding(AVFrame* scaledFrame) {
         dstPtr += dstStride;  // Move to the next row in the destination
     }
 
-    logger(LogLevel::DEBUG, "Frame copied without padding. Width: " + std::to_string(videoTexture.width) + ", Height: " + std::to_string(videoTexture.height));
+//    logger(LogLevel::DEBUG, "Frame copied without padding. Width: " + std::to_string(videoTexture.width) + ", Height: " + std::to_string(videoTexture.height));
 }
 
 
@@ -84,7 +84,7 @@ void RaylibManager::render(bool shouldEndDrawing) {
     // Render all nodes in the renderableNodes vector
     for (const auto* renderable : *renderableNodes) {
 		renderable->node->updateComputedStyle();
-        renderNode(renderable->node);
+        renderNode(renderable);
     }
     if (shouldEndDrawing) {
 		RaylibEndDrawing();
@@ -148,39 +148,40 @@ void RaylibManager::renderFrame(AVFrame* frame) {
     RaylibEndDrawing();
 }
 
-void RaylibManager::renderNode(Node* node) {
+void RaylibManager::renderNode(const RenderableNode* renderable) {
+	Node* node = renderable->node;
     ComputedStyle& style = node->getComputedStyle();
 	
 	RoundedRectangleParams rectangleParams;
     // Draw background
     if (style.borderRadius.value > 0) {
-		rectangleParams = calculateRoundedRectangleParams(style.bounds.value, style.borderRadius.value);
+		rectangleParams = calculateRoundedRectangleParams(renderable->bounds, style.borderRadius.value);
     	RaylibDrawRectangleRounded(
-			style.bounds.value,
+			renderable->bounds,
 			rectangleParams.roundness,
 			rectangleParams.segments, 
 			style.backgroundColor.value
 		);
     }
     else {
-		RaylibDrawRectangleRec(style.bounds.value, style.backgroundColor.value);
+		RaylibDrawRectangleRec(renderable->bounds, style.backgroundColor.value);
 	}
 
     // If node has a background image, draw it
     if (!style.backgroundImage.value.empty()) {
-        // Assuming we have a method to load/cache textures
-        Texture2D texture = textureCache.getTexture(style.backgroundImage.value);
-        RaylibDrawTextureRec(texture, style.bounds.value, {style.bounds.value.x, style.bounds.value.y}, RAYLIB_WHITE);
+//		logger(LogLevel::DEBUG, "Retrieving texture from cache");
+        Texture2D texture = textureCache->getTexture(style.backgroundImage.value);
+        RaylibDrawTextureRec(texture, { 0, 0, (float)texture.width, (float)texture.height }, {renderable->bounds.x, renderable->bounds.y}, RAYLIB_WHITE);
     }
     
     // Draw border
     if (style.borderWidth.value > 0) {
 		if (style.borderRadius.value > 0) {
 			if (rectangleParams.roundness == 0) {
-				rectangleParams = calculateRoundedRectangleParams(style.bounds.value, style.borderRadius.value);
+				rectangleParams = calculateRoundedRectangleParams(renderable->bounds, style.borderRadius.value);
 			}
 			RaylibDrawRectangleRoundedLinesEx(
-				style.bounds.value,
+				renderable->bounds,
 				rectangleParams.roundness,
 				rectangleParams.segments,
 				style.borderWidth.value,
@@ -189,7 +190,7 @@ void RaylibManager::renderNode(Node* node) {
 		}
 		else {
 	        RaylibDrawRectangleLinesEx(
-				style.bounds.value,
+				renderable->bounds,
 				style.borderWidth.value,
 				style.borderColor.value
 			);
@@ -199,8 +200,8 @@ void RaylibManager::renderNode(Node* node) {
     // Draw text content
     RaylibDrawText(
 		node->getTextContent().c_str(),
-		style.bounds.value.x,
-		style.bounds.value.y,
+		renderable->bounds.x,
+		renderable->bounds.y,
 		style.fontSize.value,
 		style.textColor.value
 	);
@@ -235,6 +236,7 @@ void RaylibManager::cleanup() {
 	if (frameBuffer) {
 		delete[] frameBuffer;
 	}
+	delete textureCache;
     RaylibUnloadTexture(videoTexture);
 }
 

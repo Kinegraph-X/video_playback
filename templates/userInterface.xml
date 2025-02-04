@@ -1,0 +1,3 @@
+<Node id="main_container" className="">
+	<Button className="button"></Button>
+</Node>

@@ -3,7 +3,7 @@
 
 class Clickable : public Node {
 public:
-    Clickable(Node* parent = nullptr, char* id = nullptr, char* className = nullptr);
+    Clickable(Node* parent = nullptr, std::string id = "", std::vector<std::string> classNames = std::vector<std::string>());
 
     virtual void onPress();
     virtual void onRelease();
@@ -17,7 +17,7 @@ public:
     
     void handleClick(const EventPayload& payload);
 
-    void handleEvent(const EventPayload& payload);
+    virtual void handleEvent(const EventPayload& payload) override;
     
 protected:
     RaylibVector2 dragStartPosition;

@@ -10,6 +10,7 @@ void TextureCache::preloadTextures(const std::vector<std::string>& filenames) {
 
 Texture2D TextureCache::getTexture(const std::string& filename) {
 	std::lock_guard<std::mutex> lock(cacheMutex);
+	namespace fs = std::filesystem;
 
 	// Cache size management, before adding new texture
 	if (cache.size() >= MAX_CACHE_SIZE) {
@@ -24,10 +25,22 @@ Texture2D TextureCache::getTexture(const std::string& filename) {
         return it->second;
     }
     
-    // Texture not found in cache, load it
-    Texture2D texture = RaylibLoadTexture(filename.c_str());
-    cache[filename] = texture;
-    return texture;
+    std::string resolvedFilename = GetExecutablePath() + "/" + filename;
+    logger(LogLevel::DEBUG, "Resolved texture filename : " + resolvedFilename);
+    if (fs::exists(resolvedFilename)) {
+	    // Texture not found in cache, load it
+	    Texture2D texture = RaylibLoadTexture(resolvedFilename.c_str());
+	    cache[filename] = texture;
+	    return texture;
+    }
+    else {
+		// Fallback: Create a checkered texture
+		logger(LogLevel::ERR, "Failed to load texture from file : " + filename);
+	    RaylibImage fallback = RaylibGenImageChecked(32, 32, 8, 8, RAYLIB_DARKGRAY, RAYLIB_LIGHTGRAY); // Checkerboard pattern
+	    Texture2D fallbackTexture = RaylibLoadTextureFromImage(fallback);
+	    RaylibUnloadImage(fallback);
+	    return fallbackTexture;
+	}
 }
 
 TextureCache::~TextureCache() {

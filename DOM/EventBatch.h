@@ -14,5 +14,7 @@ public:
     void addEvent(const UIEvent& event);
 
     std::vector<UIEvent> getEvents();
+    
+    void clear();
     void cleanup();
 };

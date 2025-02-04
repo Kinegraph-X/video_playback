@@ -19,7 +19,7 @@ public:
     std::vector<Node*> children;
     Style* style = new Style();
     Texture2D texture;  // Uninitialized Texture2D
-    bool textureInitialized;
+    bool textureInitialized = false;
     std::string textContent;
     ComputedStyle computedStyle = ComputedStyle();
     
@@ -27,8 +27,8 @@ public:
     std::atomic<bool> isHovered{false};
     std::atomic<bool> isDragging{false};
     
-    Node(Node* parent = nullptr, std::string id = "", std::vector<std::string> className = std::vector<std::string>());
-    ~Node();
+    Node(Node* parent = nullptr, std::string id = "", std::vector<std::string> classNames = std::vector<std::string>());
+    virtual ~Node();
 	
 	std::string getId();
 	std::vector<std::string> getClassNames();
@@ -56,7 +56,7 @@ public:
     std::string getTextContent();
 
 
-    void setTexture(const Texture2D& newTexture);
+//    void setTexture(const Texture2D& newTexture);
     void setBackgroundColor(RaylibColor color);
     void setBorderColor(RaylibColor color);
     void setTextColor(RaylibColor color);

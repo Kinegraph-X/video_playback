@@ -28,7 +28,7 @@ private:
 	
 	BasicLayout& layout;
 	ImageRescaler& rescaler;
-	TextureCache textureCache;
+	TextureCache* textureCache = new TextureCache();
 	std::vector<RenderableNode*>* renderableNodes = nullptr;
     Texture2D videoTexture;
     RenderTexture2D titleBarContainer;
@@ -49,7 +49,7 @@ public:
     void render(bool shouldEndDrawing = true);
 	
 	void renderFrame(AVFrame *frame);
-    void renderNode(Node* node);
+    void renderNode(const RenderableNode* renderable);
 
 	void acquireRenderableNodes(std::vector<RenderableNode>* renderableNodes);
 	

@@ -3,9 +3,7 @@
 
 class RootNode : public Node {
 public:
-    RootNode();
+    RootNode(Node* parent = nullptr, std::string id = "", std::vector<std::string> classNames = std::vector<std::string>());
     
-    // Override getParent to return nullptr
-    Node* parent = nullptr;
     Node* getParent() const;
 };

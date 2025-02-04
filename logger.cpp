@@ -1,6 +1,7 @@
 #include "logger.h"
 #include "utils.h"
 #include "MediaState.h"
+#include "DOM/Style.h"
 
 
 std::string logLevelToString(LogLevel level) {
@@ -63,12 +64,40 @@ namespace LogUtils {
         return oss.str();
     }
     
-    template <typename MediaState::State>
-    typename std::enable_if<std::is_enum<MediaState::State>::value, std::string>::type
-    toString(const MediaState::State& value) {
-        using UnderlyingType = typename std::underlying_type<MediaState::State>::type;
+//    template <typename MediaState::State>
+//    typename std::enable_if<std::is_enum<MediaState::State>::value, std::string>::type
+	template <>
+	std::string toString(const MediaState::State& value) {
+//    toString(const MediaState::State& value) {
+//        using UnderlyingType = typename std::underlying_type<MediaState::State>::type;
+        using UnderlyingType = typename std::underlying_type_t<MediaState::State>;
         return toString(static_cast<UnderlyingType>(value));
     }
+    template <>
+//    typename std::enable_if<std::is_enum<Position>::value, std::string>::type
+    std::string toString(const Position& value) {
+        using UnderlyingType = typename std::underlying_type_t<Position>;
+        return toString(static_cast<UnderlyingType>(value));
+    }
+    
+    template <>
+    std::string toString<RaylibRectangle>(const RaylibRectangle& rect) {
+        std::ostringstream oss;
+        oss << "Rectangle(" << rect.x << ", " << rect.y 
+            << ", " << rect.width << ", " << rect.height << ")";
+        return oss.str();
+    }
+    
+    template <>
+    std::string toString<RaylibColor>(const RaylibColor& color) {
+        std::ostringstream oss;
+        oss << "Color(" << static_cast<int>(color.r) << ", " 
+            << static_cast<int>(color.g) << ", " 
+            << static_cast<int>(color.b) << ", " 
+            << static_cast<int>(color.a) << ")";
+        return oss.str();
+    }
+
     
     // Specialization for enums
 //    template <typename T>
@@ -77,7 +106,8 @@ namespace LogUtils {
 //        using UnderlyingType = typename std::underlying_type<T>::type;
 //        return toString(static_cast<UnderlyingType>(value));
 //    }
-    template std::string toString<MediaState::State>(const MediaState::State& value);
+//    template std::string toString<MediaState::State>(const MediaState::State& value);
+//    template std::string toString<Position>(const Position& value);
     template std::string toString<UINT>(const UINT& value);
 //    template std::string toString<AVSampleFormat>(const AVSampleFormat& value);
 

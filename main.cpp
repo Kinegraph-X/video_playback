@@ -12,7 +12,8 @@
 #include "RaylibManager.h" // IWYU pragma: export
 #include "DOM/Button.h" // IWYU pragma: export
 #include "templates/styleDefinitions.h"
-#include "templates/testTemplate.h"
+#include "templates/template.h"
+#include "uiInteractions.h"
 
 
 #include <dbghelp.h>
@@ -23,11 +24,13 @@
 void cleanup(
 		SDLManager* sdl_manager,
 		RaylibManager* raylibManager,
+		InteractionHandler& interactionHandler,
 		CommandProcessor& commandProcessor,
 		std::thread& commandThread,
 		ImageRescaler* rescaler,
 		AVFrame* frame,
-		std::unique_ptr<ShouldRenderHandler>& shouldRenderHandler
+		std::unique_ptr<ShouldRenderHandler>& shouldRenderHandler,
+		RootNode* rootNode
 	) {
 	logger(LogLevel::DEBUG, "START of exit sequence");
 	
@@ -52,13 +55,15 @@ void cleanup(
 	delete rescaler;
 	av_frame_free(&frame);
 	
+//	interactionHandler.stop();
+	
+	delete rootNode;
+	
 	logger(LogLevel::DEBUG, "END of exit sequence");
 }
 
 void initRescaler(RaylibManager* renderManager, AVCodecContext* videoCodecContext, int titleHeight) {
     int width = RaylibGetRenderWidth(), height = RaylibGetRenderHeight();
-//    SDL_GetWindowSize(sdlManager->window, &width, &height);
-//    height -= titleHeight;
     logger(LogLevel::DEBUG, "Width of render : " + std::to_string(width));
     logger(LogLevel::DEBUG, "Height of render : " + std::to_string(height));
     WindowSize windowSize{width, height};
@@ -68,8 +73,8 @@ void initRescaler(RaylibManager* renderManager, AVCodecContext* videoCodecContex
 int WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow) {
 	// DEBUG
 	bool aborted = false;
-//	bool resizerOK = false;
 	bool renderHandled = false;
+	bool renderRequired = false;
 	std::string filePath = "\\media\\test_video_02.mp4";
 	
 	/*
@@ -84,18 +89,17 @@ int WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int n
 	std::atomic<bool> isRunning(true);
 	int currentPlayerId = -1;
 	
-//    AVCodecContext* videoCodecContext = nullptr;
 	PlayerThreadHandler* playerHandler = nullptr;
 	std::unique_ptr<ShouldRenderHandler> renderHandler = nullptr;
 	SDL_Event event;
 	int titleBarHeight = 31;
-	int uiHeight = 80;
+	int uiHeight = 144;
 	
 	InitialParams initialParams = InitialParams{
-		500,
+		100,
 		200,
-		570,
-		320 + titleBarHeight + uiHeight,
+		900,
+		505 + titleBarHeight + uiHeight,
 		av_get_bytes_per_sample(AV_SAMPLE_FMT_S16)
 	};
 	
@@ -114,11 +118,12 @@ int WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int n
 	/*
 	* BOOTSTRAPPING
 	*/
-	char* templateName = "../templates/testTemplate.xml";
+	char* templateName = "../templates/userInterface.xml";
 	pugi::xml_document doc = loadTemplate(templateName);
 	
 	BasicLayout layout;
 	EventQueue eventQueue;
+	EventBatch eventBatch;
 	InteractionHandler interactionHandler(eventQueue);
 	StyleManager styleManager;
 	createStyles(styleManager);
@@ -126,15 +131,6 @@ int WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int n
 	
 	doc.traverse(walker);
 	RootNode* rootNode = walker.rootNode;
-//	for (auto* child : walker.rootNode->getChildren()) {
-//		logger(LogLevel::DEBUG, "ID of children is :  " + child->id);
-//		logger(LogLevel::DEBUG, "random computedStyle prop name : " + child->computedStyle.position.name);
-//	}
-//	for (const auto& property : rootNode->computedStyle) {
-//		std::visit([](const auto& prop) {
-//			logger(LogLevel::DEBUG, "random computedStyle prop name : " + prop.get().name);
-//		}, property);
-//	}
 	layout.makeLayout(rootNode, currentWindowPosition);
 
 	/*
@@ -157,78 +153,21 @@ int WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int n
 		"JAGF - Just-Another-Good-FFmpegPlayer"
 	);
 	raylibManager->render();
+	interactionHandler.acquireRenderableNodes(layout.renderableNodes);
+//	interactionHandler.start();	
 	
 	/*
 	* MAIN EVENT HANDLER
 	*/
     CommandProcessor commandProcessor(isRunning, sdl_manager->audioDevice, socket_params.port);
     std::thread commandThread(&CommandProcessor::listeningLoop, &commandProcessor);
-    commandProcessor.handleLoad(filePath);
+//    commandProcessor.handleLoad(filePath);
 	
 	
-//	while (isRunning) {
-//		if (commandProcessor.activeHandlerId != currentPlayerId) {
-//			logger(LogLevel::DEBUG, "currentPlayer changed");
-//			currentPlayerId = commandProcessor.activeHandlerId;
-//			playerHandler = commandProcessor.getPlayerHandlerAt(currentPlayerId);
-//		    if (playerHandler) {
-//				videoCodecContext = playerHandler->formatHandler->getVideoCodecContext();
-//				if (videoCodecContext) { //  && !resizerOK
-//					initRescaler(sdl_manager, videoCodecContext, titleBarHeight);
-//					renderHandler = std::make_unique<ShouldRenderHandler>(playerHandler->videoFrameQueue);
-//					resizerOK = true;
-//				}
-//			}
-//		}
-//		
-//	    while (SDL_PollEvent(&event)) {
-//			switch(event.type) {
-//				case SDL_QUIT : 
-//					isRunning.store(false, std::memory_order_release);
-//					logger(LogLevel::DEBUG, "Received SDL_Quit event");
-//					break;
-//				case SDL_USEREVENT : 
-//					switch (static_cast<PlayerEvent::Type>(event.user.code)) {
-//						case PlayerEvent::SHOULD_RENDER :
-//							if (!aborted) {
-//								if (!(renderHandler->handleRenderEvent(event.user.data1, frame))) {
-//                                    logger(LogLevel::ERR, "Failed to handle SHOULD_RENDER event.");
-//                                    aborted = true;
-//                                }
-//								else {
-////									sdl_manager->updateTextureFromFrame(frame);
-//									av_frame_unref(frame);
-//								}
-//							}
-//							break;		
-//					}
-//					break;
-//				case SDL_WINDOWEVENT :
-//					if (event.window.event == SDL_WINDOWEVENT_RESIZED) {
-//						if (playerHandler && playerHandler->isLoaded) {
-//							WindowSize windowSize {event.window.data1, event.window.data2};
-//							sdl_manager->resizeWindowFileLoaded(videoCodecContext, &windowSize);
-//						}
-//					}
-//					else if (event.window.event == SDL_WINDOWEVENT_MOVED) {
-//			            int offsetX = event.window.data1 - currentWindowPosition.xPos;
-//			            int offsetY = event.window.data2 - currentWindowPosition.yPos;
-////			            uiApplication->updateUIWindowPosition(offsetX, offsetY);
-//			            
-//			            currentWindowPosition.xPos = event.window.data1;
-//			            currentWindowPosition.yPos = event.window.data2;
-//			        }
-//					break;
-//				default:
-//			      break;
-//			};
-//	    }
-//	    SDL_Delay(16); // ~60 FPS cap
-//	}
-	
-//	RaylibSetTargetFPS(120);
-	while (!RaylibWindowShouldClose()) {
+	//!RaylibWindowShouldClose()
+	while (!aborted) {
 		renderHandled = false;
+		renderRequired = false;
 		if (commandProcessor.activeHandlerId != currentPlayerId) {
 			logger(LogLevel::DEBUG, "currentPlayer changed");
 			currentPlayerId = commandProcessor.activeHandlerId;
@@ -241,17 +180,6 @@ int WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int n
 			renderHandler = std::make_unique<ShouldRenderHandler>(playerHandler->videoFrameQueue);
 		}
 		
-//        MSG msg;
-//        while (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE)) {
-//            TranslateMessage(&msg);
-//            DispatchMessage(&msg);
-//            if (msg.message == WM_CLOSE) {
-//				PostQuitMessage(0);
-////				RaylibCloseWindow();
-//				break;
-//			}
-//        }
-        
         while (SDL_PollEvent(&event)) {
 			switch(event.type) {
 				case SDL_USEREVENT : 
@@ -265,6 +193,7 @@ int WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int n
                                 }
 								else {
 									raylibManager->renderFrame(frame);
+									interactionHandler.consumeEvents();
 									renderHandled = true;
 									av_frame_unref(frame);
 								}
@@ -276,22 +205,44 @@ int WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int n
 			      break;
 			}
 		}
-		
+
 		if (!renderHandled) {
 			RaylibPollInputEvents();
+			interactionHandler.consumeEvents();
 		}
+		
+		eventQueue.populateBatch(eventBatch);
+		for (UIEvent& event : eventBatch.getEvents()) {
+			if (event.targetNode == rootNode) {
+				if (event.payload.type == EventType::Close) {
+					aborted  = true;
+				}
+			}
+			else {
+				event.targetNode->handleEvent(event.payload);
+				renderRequired = true;
+			}
+		}
+		
+		if (!renderHandled && renderRequired) {
+        	raylibManager->render();
+		}
+		
+		eventBatch.clear();
         
-        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
     }
 	
 	cleanup(
 		sdl_manager,
 		raylibManager,
+		interactionHandler,
 		commandProcessor,
 		commandThread,
 		rescaler,
 		frame,
-		renderHandler // not needed, but here to remind it should be passed by reference
+		renderHandler, // not needed, but here to remind it should be passed by reference
+		rootNode
 	);
 	   
     return 0;

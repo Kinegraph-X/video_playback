@@ -1,5 +1,6 @@
 #pragma once
 #include "player_headers.h"
+#include "utils.h"
 #include "Node.h"
 
 class TextureCache {
