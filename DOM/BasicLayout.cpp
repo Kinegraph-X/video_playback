@@ -26,12 +26,15 @@ void BasicLayout::sortNodeTree() {
 }
 
 void BasicLayout::makeLayout(RootNode* root, WindowSize windowSize) {
+	currentTraversalDepth = 0;
 	this->rootNode = root;
 	this->windowSize.width = windowSize.width;
 	this->windowSize.height = windowSize.height;
 	renderableNodes->clear();
 	parentDimensions.width = windowSize.width;
     parentDimensions.height = windowSize.height;
+    root->computedStyle.bounds.value.width = windowSize.width;
+    root->computedStyle.bounds.value.height = windowSize.height;
     logger(LogLevel::DEBUG, "Will make layout");
 	traverseNodeTree(root, 0);
 	sortNodeTree();
@@ -39,16 +42,27 @@ void BasicLayout::makeLayout(RootNode* root, WindowSize windowSize) {
 
 void BasicLayout::traverseNodeTree(Node* node, int depth) {
     if (!node) return;
-    
+	
+	if (depth != 0) {
+//		logger(LogLevel::DEBUG, "Updating parent dimensions on depth change");
+//		logger(LogLevel::DEBUG, "Node has children : " + std::to_string(node->getChildren().size()));
+    	parentDimensions = node->getParent()->computedStyle.bounds.value;
+    	currentTraversalDepth = depth;
+    	if (node->classNames.size() > 0) {
+			logger(LogLevel::DEBUG, "layouting node of class " + node->classNames.at(0));
+		}
+    }
+	    
+//    logger(LogLevel::DEBUG, "Depth is " + std::to_string(depth));
+    node->updateComputedStyle();
     RenderableNode* renderable = getRenderableNode(node, depth);
     if (depth == 0) {
 		renderable->bounds.height = windowSize.height;
 	}
     renderableNodes->push_back(renderable);
-    parentDimensions = renderable->bounds;
 
     for (const auto& child : node->getChildren()) {
-		if (depth == 0) resetParentDimensions();
+//		if (depth == 0) resetParentDimensions();
         traverseNodeTree(child, depth + 1);
     }
 }
@@ -57,10 +71,14 @@ RenderableNode* BasicLayout::getRenderableNode(Node* node, int depth) {
 	RenderableNode* renderable = new RenderableNode;
     renderable->node = node;
     renderable->zIndex = node->getStyle().zIndex.value;
-    renderable->bounds = node->getStyle().bounds.value;
     renderable->depth = depth;
 //    logger(LogLevel::DEBUG, "Will position node");
     positionNode(*renderable);
+    renderable->bounds = node->computedStyle.bounds.value;
+    logger(LogLevel::DEBUG, "renderable dimensions x : " + std::to_string(renderable->bounds.x));
+	logger(LogLevel::DEBUG, "renderable dimensions y : " + std::to_string(renderable->bounds.y));
+	logger(LogLevel::DEBUG, "renderable dimensions width : " + std::to_string(renderable->bounds.width));
+	logger(LogLevel::DEBUG, "renderable dimensions height : " + std::to_string(renderable->bounds.height));
     return renderable;
 }
 
@@ -71,16 +89,10 @@ void BasicLayout::positionNode(RenderableNode& renderable) {
 	logger(LogLevel::DEBUG, "Parent dimensions height : " + std::to_string(parentDimensions.height));
 	if (renderable.node->getStyle().position.value == Position::Relative) {
 		logger(LogLevel::DEBUG, "Updating from parent dimensions");
-		renderable.bounds.x += parentDimensions.x;
-		renderable.bounds.y += parentDimensions.y;
+		renderable.node->computedStyle.bounds.value.x += parentDimensions.x;
+		renderable.node->computedStyle.bounds.value.y += parentDimensions.y;
 	}
-	if (renderable.bounds.width == 0) {
-		renderable.bounds.width = parentDimensions.width;
-	}
-	logger(LogLevel::DEBUG, "renderable dimensions x : " + std::to_string(renderable.bounds.x));
-	logger(LogLevel::DEBUG, "renderable dimensions y : " + std::to_string(renderable.bounds.y));
-	logger(LogLevel::DEBUG, "renderable dimensions width : " + std::to_string(renderable.bounds.width));
-	logger(LogLevel::DEBUG, "renderable dimensions height : " + std::to_string(renderable.bounds.height));
+	
 }
 
 void BasicLayout::resetParentDimensions() {

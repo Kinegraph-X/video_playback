@@ -9,14 +9,19 @@
 struct NodeCreatorWalker : pugi::xml_tree_walker {
     RootNode* rootNode = new RootNode();
     Node* currentParent = rootNode;
+    std::unordered_map<int, Node*> parentAtDepth;
+	int previousDepth = -1;
     const StyleManager& styleManager;
 
-    NodeCreatorWalker(const StyleManager& sm) : styleManager(sm) {
+    NodeCreatorWalker(const StyleManager& sm) : styleManager(sm){
 		rootNode->id = "root_node";
 //		logger(LogLevel::DEBUG, "NodeCreatorWalker ctor");
 	}
 
     virtual bool for_each(pugi::xml_node& xmlNode) {
+		int currentDepth = depth();
+//		logger(LogLevel::DEBUG, "Processing node at depth: " + std::to_string(currentDepth));
+
 //		logger(LogLevel::DEBUG, "NodeCreatorWalker walker for_each");
         std::string nodeName = xmlNode.name();
         logger(LogLevel::DEBUG, "NodeCreatorWalker walker nodeName : " + nodeName);
@@ -24,6 +29,15 @@ struct NodeCreatorWalker : pugi::xml_tree_walker {
         std::string className = xmlNode.attribute("className").as_string();
         std::vector<std::string> classNames;
         classNames.push_back(className);
+        
+        if (currentDepth > previousDepth) {
+            parentAtDepth[currentDepth] = currentParent;
+        }
+        else if (currentDepth <= previousDepth) {
+            currentParent = parentAtDepth[currentDepth];
+        }
+        
+//        logger(LogLevel::DEBUG, "NodeCreatorWalker walker parent node id : " + currentParent->id);
 
         Node* node;
         if (nodeName == "Node") {
@@ -57,7 +71,7 @@ struct NodeCreatorWalker : pugi::xml_tree_walker {
 //		}
 		
         currentParent = node;
-        
+        previousDepth = currentDepth;
         return true; // Continue traversal
     }
 };

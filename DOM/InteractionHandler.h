@@ -7,19 +7,20 @@ class InteractionHandler {
 private:
     std::thread handlerThread;
     std::atomic<bool> running{true};
-    EventQueue& eventQueue;
+    std::shared_ptr<EventQueue> eventQueue;
 
-    Node* findTargetNode(const RaylibVector2& position);
+    Node* findTargetNode(const RaylibVector2& position, bool isOutsideTheWindow);
 
     void handlerLoop();
 
 public:
 	std::vector<RenderableNode*>* renderableNodes;
-    InteractionHandler(EventQueue& queue);
+    InteractionHandler(std::shared_ptr<EventQueue> queue);
 
     void start();
     void stop();
     void acquireRenderableNodes(std::vector<RenderableNode*>* renderableNodes);
+    RaylibVector2 GetMousePositionScreen();
     
     void consumeEvents();
     void handleShouldClose();

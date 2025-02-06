@@ -1,3 +1,13 @@
+<Button className="fullscreen_button"></Button>
+
 <Node id="main_container" className="">
-	<Button className="button"></Button>
+	<Button className="play_button"></Button>
+	<Button className="pause_button"></Button>
+	<Button className="minus_five_button"></Button>
+	<Button className="plus_five_button"></Button>
+	<Button className="stop_button"></Button>
+	<Button className="load_button"></Button>
+	<Button className="hand_button"></Button>
+	<Button className="shutdown_button"></Button>
+	<Button className="audio_slider"></Button>
 </Node>

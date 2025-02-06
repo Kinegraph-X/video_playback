@@ -18,9 +18,6 @@ Node::~Node() {
 //		logger(LogLevel::DEBUG, "cleaning node className : " + this->classNames.at(0));
 //	}
 //	logger(LogLevel::DEBUG, "node has children : " + std::to_string(this->children.size()));
-    if (textureInitialized) {
-        RaylibUnloadTexture(texture);
-    }
     if (style) {
         delete style;
         style = nullptr;
@@ -83,14 +80,36 @@ std::vector<std::string> Node::getClassNames() {
 	return this->classNames;
 }
 
+void Node::handleMouseEnter(const EventPayload& payload) {
+	EventPayload forwardedPayload(EventType::MouseEnter);
+	forwardedPayload.mousePosition = payload.mousePosition;
+	EventListener::handleEvent(forwardedPayload);
+}
+
+/**
+* The main loop must check the isHovered status and call this function on mouseout
+*/
+void Node::handleMouseOut(RaylibVector2 mousePosition, bool isCleanupForOutsideWindow){
+	RaylibSetMouseCursor(RAYLIB_MOUSE_CURSOR_ARROW);
+	isDragging.store(false);
+	isActive.store(false);
+	setHovered(false);
+	updateComputedStyle();
+	if (!isCleanupForOutsideWindow) {
+		EventPayload forwardedPayload(EventType::MouseOut);
+		forwardedPayload.mousePosition = mousePosition;
+		EventListener::handleEvent(forwardedPayload);
+	}
+}
+
 void Node::toggleActive() {
-    isActive = !isActive;
+    isActive.store(!isActive);
 //    logger(LogLevel::DEBUG, "active state toggled : " + LogUtils::toString(isActive));
     updateComputedStyle();
 }
 
 void Node::setHovered(bool hovered) {
-    isHovered = hovered;
+	isHovered.store(hovered);
     updateComputedStyle();
 }
 
@@ -211,6 +230,17 @@ std::string Node::getTextContent() {
 
 void Node::initNodeEventTypes() {
     // Initialize additional event types specific to nodes if needed
+}
+
+void Node::handleEvent(const EventPayload& payload) {
+	if (payload.type == EventType::MouseMove) {
+		if (!isHovered) {
+			setHovered(true);
+			handleMouseEnter(payload);
+		}
+	}
+	
+	EventListener::handleEvent(payload);
 }
 
 void Node::dispatchEvent(const EventPayload& payload) {

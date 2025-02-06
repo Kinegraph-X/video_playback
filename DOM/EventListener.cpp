@@ -7,6 +7,7 @@ void EventListener::initEventType(EventType type) {
 }
 
 void EventListener::addEventListener(EventType type, EventHandler handler) {
+	logger(LogLevel::DEBUG, "Event Handler manually added on Node");
     initEventType(type);
     eventHandlers[type].push_back(handler);
 }

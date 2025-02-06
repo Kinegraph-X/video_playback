@@ -13,19 +13,22 @@ public:
     void setOnDragStart(DragCallback callback);
     void setOnDragMove(DragCallback callback);
     void setOnDragEnd(DragCallback callback);
-
     
-    void handleClick(const EventPayload& payload);
+    DragCallback onDragStart;
+    DragCallback onDragMove;
+    DragCallback onDragEnd;
 
-    virtual void handleEvent(const EventPayload& payload) override;
     
 protected:
     RaylibVector2 dragStartPosition;
     RaylibVector2 lastDragPosition;
 	std::mutex dragMutex;
 	
+	void handleHover(const EventPayload& payload);
+    void handleClick(const EventPayload& payload);
+
+    virtual void handleEvent(const EventPayload& payload) override;
+    
 	RaylibVector2 getDragDelta();
-	DragCallback onDragStart;
-    DragCallback onDragMove;
-    DragCallback onDragEnd;
+
 };

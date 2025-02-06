@@ -22,3 +22,7 @@ void EventQueue::populateBatch(EventBatch& batch) {
         eventQueue.pop();
     }
 }
+
+size_t EventQueue::getSize() {
+	return eventQueue.size(); 
+}

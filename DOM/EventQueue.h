@@ -9,11 +9,14 @@ private:
     std::mutex queueMutex;
 
 public:
+	EventQueue() {}
     void pushEvent(const UIEvent& event);
 
     EventBatch createBatch();
     
     void populateBatch(EventBatch& batch);
+    
+    size_t getSize();
 };
 
 

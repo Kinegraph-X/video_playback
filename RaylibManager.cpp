@@ -1,12 +1,18 @@
 #include "RaylibManager.h"
 
 
-RaylibManager::RaylibManager(int width, int height, int titleHeight, int uiHeight, BasicLayout& layoutInstance, ImageRescaler& resizer, char* title)
+RaylibManager::RaylibManager(int x, int y, int width, int height, int titleHeight, int uiHeight, BasicLayout& layoutInstance, ImageRescaler& resizer, char* title)
     : windowWidth(width), windowHeight(height), titleBarHeight(titleHeight), uiBarHeight(uiHeight), layout(layoutInstance), rescaler(resizer) {
 	
 	renderableNodes = layout.renderableNodes;
-	RaylibSetConfigFlags(RAYLIB_FLAG_WINDOW_TRANSPARENT);	
+	RaylibSetConfigFlags(RAYLIB_FLAG_WINDOW_TRANSPARENT | RAYLIB_FLAG_WINDOW_UNDECORATED);	
     RaylibInitWindow(windowWidth, windowHeight, title);
+    windowPosition.xPos = x;
+    windowPosition.yPos = y;
+    RaylibSetWindowPosition(
+		x,
+		y
+	);
     
     // Initialize video texture
     reflectWindowResizeOnVideo();
@@ -28,7 +34,21 @@ void RaylibManager::reflectWindowResizeOnVideo() {
     RaylibUnloadImage(image);
 }
 
-void RaylibManager::resizeWindow(const WindowSizeOffset &offset) {
+
+void RaylibManager::moveWindow(RaylibVector2 &offset) {
+//	logger(LogLevel::DEBUG, "Mouse move : current position X is " + LogUtils::toString(windowPosition.xPos));
+//	logger(LogLevel::DEBUG, "Mouse move : current position Y is " + LogUtils::toString(windowPosition.yPos));
+//	logger(LogLevel::DEBUG, "Mouse move : new position X is " + LogUtils::toString(windowPosition.xPos + static_cast<int>(std::round(offset.x))));
+//	logger(LogLevel::DEBUG, "Mouse move : new position Y is " + LogUtils::toString(windowPosition.yPos + static_cast<int>(std::round(offset.y))));
+	windowPosition.xPos += static_cast<int>(std::round(offset.x));
+	windowPosition.yPos += static_cast<int>(std::round(offset.y));
+	RaylibSetWindowPosition(
+		windowPosition.xPos,
+		windowPosition.yPos
+	);
+}
+
+void RaylibManager::resizeWindow(WindowSizeOffset &offset) {
     // Update window dimensions
     windowWidth += offset.xOffset;
     windowHeight += offset.yOffset;
@@ -41,15 +61,15 @@ void RaylibManager::resizeWindow(const WindowSizeOffset &offset) {
     reflectWindowResizeOnVideo();
 }
 
-void RaylibManager::resizeWindowFileLoaded(AVCodecContext* codecContext, const WindowSize* windowSize) {
-	windowWidth = windowSize->width;
-	windowHeight = windowSize->height;
+void RaylibManager::resizeWindowFileLoaded(AVCodecContext* codecContext, WindowSize& windowSize) {
+	windowWidth = windowSize.width;
+	windowHeight = windowSize.height;
 	reflectWindowResizeOnVideo();
     const WindowSize textureSize{videoTextureWidth, videoTextureHeight};
 	resetRescaler(codecContext, textureSize);
 }
 
-void RaylibManager::resetRescaler(AVCodecContext* codecContext, const WindowSize windowSize) {
+void RaylibManager::resetRescaler(AVCodecContext* codecContext, WindowSize windowSize) {
 	rescaler.initializeSwsContext(codecContext, &windowSize);
 	frameBuffer = new uint8_t[windowSize.width * windowSize.height * 3]();
 }
@@ -81,11 +101,14 @@ void RaylibManager::render(bool shouldEndDrawing) {
     RaylibBeginDrawing();
     RaylibClearBackground(RAYLIB_BLANK);
 
+	// Draw Empty video
+    RaylibDrawTextureRec(videoTexture, {0, 0, (float)videoTexture.width, (float)videoTexture.height}, {0, 0}, RAYLIB_BLACK);
+
     // Render all nodes in the renderableNodes vector
     for (const auto* renderable : *renderableNodes) {
-		renderable->node->updateComputedStyle();
         renderNode(renderable);
     }
+    
     if (shouldEndDrawing) {
 		RaylibEndDrawing();
 	}
@@ -151,6 +174,9 @@ void RaylibManager::renderFrame(AVFrame* frame) {
 void RaylibManager::renderNode(const RenderableNode* renderable) {
 	Node* node = renderable->node;
     ComputedStyle& style = node->getComputedStyle();
+    if (!style.isVisible.value) {
+    	return;
+    }
 	
 	RoundedRectangleParams rectangleParams;
     // Draw background

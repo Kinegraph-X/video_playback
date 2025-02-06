@@ -29,6 +29,7 @@ public:
 private:
 	WindowSize windowSize;
 	RaylibRectangle parentDimensions{0, 0, 0, 0};
+	int currentTraversalDepth = 0;
 	void sortNodeTree();
 	void traverseNodeTree(Node* node, int depth = 0);
 	RenderableNode* getRenderableNode(Node* node, int depth);

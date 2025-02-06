@@ -6,6 +6,7 @@ struct EventPayload {
     EventType type;
     // Common fields
     RaylibVector2 mousePosition;
+    RaylibVector2 screenMousePosition;
     int mouseButton;
     float wheelMove;
     int keyCode;

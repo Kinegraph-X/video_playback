@@ -6,6 +6,7 @@ EventBatch::~EventBatch() {
 }
 	
 void EventBatch::addEvent(const UIEvent& event) {
+//	logger(LogLevel::DEBUG, "Adding event ID: " + std::to_string(event.eventID));
     if (event.type == EventType::MouseMove) {
         // Replace existing MouseMove event for this node
         events[event.targetNode][EventType::MouseMove] = event;
@@ -19,6 +20,7 @@ std::vector<UIEvent> EventBatch::getEvents() {
     std::vector<UIEvent> result;
     for (const auto& nodePair : events) {
         for (const auto& eventPair : nodePair.second) {
+//			logger(LogLevel::DEBUG, "Retrieving event ID: " + std::to_string(eventPair.second.eventID));
             result.push_back(eventPair.second);
         }
     }
@@ -26,6 +28,9 @@ std::vector<UIEvent> EventBatch::getEvents() {
 }
 
 void EventBatch::clear() {
+	for (auto& nodePair : events) {
+        nodePair.second.clear();  // Ensure inner maps are cleared
+    }
 	events.clear();	
 }
 

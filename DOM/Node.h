@@ -12,18 +12,23 @@ private:
     
 //    void bubbleEvent(const EventPayload& payload);
 
+protected:
+
+void handleMouseEnter(const EventPayload& payload);
+
 public:
 	std::string id = "";
 	std::vector<std::string> classNames;
 	Node* parent;
     std::vector<Node*> children;
     Style* style = new Style();
-    Texture2D texture;  // Uninitialized Texture2D
+//    Texture2D texture;  // Uninitialized Texture2D
     bool textureInitialized = false;
     std::string textContent;
     ComputedStyle computedStyle = ComputedStyle();
     
     std::atomic<bool> isActive{false};
+    std::atomic<bool> isEntered{false};
     std::atomic<bool> isHovered{false};
     std::atomic<bool> isDragging{false};
     
@@ -42,6 +47,11 @@ public:
     
     std::vector<Node*> getChildren();
     
+    virtual void handleEvent(const EventPayload& payload) override;
+    /**
+    * The main loop must check the isHovered status and call this only if appropriate
+    */
+    void handleMouseOut(RaylibVector2 mousePosition, bool isCleanupForOutsideWindow = false);
     void toggleActive();
 	void setHovered(bool hovered);
     

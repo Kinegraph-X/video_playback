@@ -18,8 +18,7 @@ struct RoundedRectangleParams {
 class RaylibManager {
 private:
 	bool aborted = false;
-    int windowWidth;
-    int windowHeight;
+    
     int videoTextureWidth;
     int videoTextureHeight;
     int titleBarHeight;
@@ -39,11 +38,16 @@ private:
 //    void dispatchEvent(const RaylibVector2& position, const EventPayload& payload);
 
 public:
-    RaylibManager(int width, int height, int titleHeight, int uiHeight, BasicLayout& layoutInstance, ImageRescaler& rescaler, char* title);
+	WindowSize windowPosition;
+	int windowWidth;
+    int windowHeight;
+    
+    RaylibManager(int x, int y, int width, int height, int titleHeight, int uiHeight, BasicLayout& layoutInstance, ImageRescaler& rescaler, char* title);
 
-    void resizeWindow(const WindowSizeOffset &offset);
-    void resizeWindowFileLoaded(AVCodecContext* codecContext, const WindowSize* initialParams);
-    void resetRescaler(AVCodecContext* codecContext, const WindowSize initialParams);
+	void moveWindow(RaylibVector2 &offset);
+    void resizeWindow(WindowSizeOffset &offset);
+    void resizeWindowFileLoaded(AVCodecContext* codecContext, WindowSize& initialParams);
+    void resetRescaler(AVCodecContext* codecContext, WindowSize initialParams);
     void copyFrameDataWithoutPadding(AVFrame* scaledFrame);
 
     void render(bool shouldEndDrawing = true);

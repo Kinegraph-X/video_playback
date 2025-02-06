@@ -1,6 +1,6 @@
 #include "InteractionHandler.h"
 
-InteractionHandler::InteractionHandler(EventQueue& queue) : eventQueue(queue){
+InteractionHandler::InteractionHandler(std::shared_ptr<EventQueue> queue) : eventQueue(queue){
 	
 }
     
@@ -12,14 +12,32 @@ void InteractionHandler::acquireRenderableNodes(std::vector<RenderableNode*>* no
 	renderableNodes = nodes;
 }
 
-Node* InteractionHandler::findTargetNode(const RaylibVector2& position) {
+RaylibVector2 InteractionHandler::GetMousePositionScreen() {
+    POINT point;
+    GetCursorPos(&point); // Retrieves absolute screen position
+    return {static_cast<float>(point.x), static_cast<float>(point.y)};
+}
+
+Node* InteractionHandler::findTargetNode(const RaylibVector2& position, bool isOutsideTheWindow) {
+//	logger(LogLevel::DEBUG, "Testing mouse position " + LogUtils::toString(position));
+//	logger(LogLevel::DEBUG, "isOutsideTheWindow " + LogUtils::toString(isOutsideTheWindow));
     for (auto it = renderableNodes->rbegin(); it != renderableNodes->rend(); it++) {
-        if (RaylibCheckCollisionPointRec(position, (*it)->bounds)) {
-//			logger(LogLevel::DEBUG, "FOUND NODE ON EVENT");
-//			if ((*it)->node->classNames.size() > 0) {
-//				logger(LogLevel::DEBUG, "found node of class " + (*it)->node->classNames.at(0));
-//			}
-            return (*it)->node;
+        if ((*it)->node->computedStyle.isVisible.value) {
+			
+			if (RaylibCheckCollisionPointRec(position, (*it)->bounds)) {
+//				logger(LogLevel::DEBUG, "FOUND NODE ON EVENT");
+//				if ((*it)->node->classNames.size() > 0) {
+//					logger(LogLevel::DEBUG, "found node of class " + (*it)->node->classNames.at(0));
+//				}
+//				logger(LogLevel::DEBUG, "found node of class " + LogUtils::toString((*it)->bounds));
+	            return (*it)->node;
+			}
+			else if ((*it)->node->isHovered) {
+				(*it)->node->handleMouseOut(position);
+			}
+			else if (isOutsideTheWindow) {
+				(*it)->node->handleMouseOut(position, true);
+			}
         }
     }
     return nullptr;
@@ -27,15 +45,18 @@ Node* InteractionHandler::findTargetNode(const RaylibVector2& position) {
 
 void InteractionHandler::handleMouseEvents() {
     RaylibVector2 mousePosition = RaylibGetMousePosition();
-    Node* targetNode = findTargetNode(mousePosition);
+    RaylibVector2 screenMousePosition = GetMousePositionScreen();
+    bool isOutsideTheWindow = mousePosition == RaylibVector2{0, 0};
+    Node* targetNode = findTargetNode(mousePosition, isOutsideTheWindow);
 
     // Mouse move
     if (targetNode) {
         EventPayload payload{EventType::MouseMove};
         payload.mousePosition = mousePosition;
+        payload.screenMousePosition = screenMousePosition;
         UIEvent event(EventType::MouseMove, targetNode);
         event.payload = payload;
-        eventQueue.pushEvent(event);
+        eventQueue->pushEvent(event);
     }
 
     // Mouse buttons
@@ -45,14 +66,16 @@ void InteractionHandler::handleMouseEvents() {
             if (targetNode) {
                 EventPayload payload{EventType::MouseDown};
                 payload.mousePosition = mousePosition;
+                payload.screenMousePosition = screenMousePosition;
                 payload.mouseButton = button;
                 UIEvent event(EventType::MouseDown, targetNode);
         		event.payload = payload;
-                eventQueue.pushEvent(event);
+                eventQueue->pushEvent(event);
 //				logger(LogLevel::DEBUG, "FOUND NODE ON MOUSEDOWN");
-				if (targetNode->classNames.size() > 0) {
+//				if (targetNode->classNames.size() > 0) {
 //					logger(LogLevel::DEBUG, "found node of class " + targetNode->classNames.at(0));
-				}
+//					logger(LogLevel::DEBUG, "found node of class " + LogUtils::toString(targetNode->computedStyle.bounds.value));
+//				}
 //                targetNode->handleEvent(payload);
             }
         }
@@ -61,10 +84,11 @@ void InteractionHandler::handleMouseEvents() {
             if (targetNode) {
                 EventPayload payload{EventType::MouseUp};
                 payload.mousePosition = mousePosition;
+                payload.screenMousePosition = screenMousePosition;
                 payload.mouseButton = button;
                 UIEvent event(EventType::MouseUp, targetNode);
         		event.payload = payload;
-                eventQueue.pushEvent(event);
+                eventQueue->pushEvent(event);
                 
 //                targetNode->handleEvent(payload);
             }
@@ -80,7 +104,7 @@ void InteractionHandler::handleMouseEvents() {
         payload.wheelMove = wheelMove;
         UIEvent event(EventType::MouseWheel, targetNode);
 		event.payload = payload;
-        eventQueue.pushEvent(event);
+        eventQueue->pushEvent(event);
     }
 }
 
@@ -96,7 +120,7 @@ void InteractionHandler::handleKeyboardEvents() {
         payload.keyCode = key;
         UIEvent event(EventType::KeyDown, targetNode);
 		event.payload = payload;
-        eventQueue.pushEvent(event);
+        eventQueue->pushEvent(event);
     }
 
     // Key released
@@ -107,19 +131,19 @@ void InteractionHandler::handleKeyboardEvents() {
 	        payload.keyCode = key;
 	        UIEvent event(EventType::KeyUp, targetNode);
     		event.payload = payload;
-	        eventQueue.pushEvent(event);
+	        eventQueue->pushEvent(event);
 	    }
 	}
 
     // Char input
-    int charPressed = RaylibGetCharPressed();
-    if (charPressed != 0) {
-        EventPayload payload{EventType::CharInput};
-        payload.charCode = charPressed;
-        UIEvent event(EventType::CharInput, targetNode);
-		event.payload = payload;
-        eventQueue.pushEvent(event);
-    }
+//    int charPressed = RaylibGetCharPressed();
+//    if (charPressed != 0) {
+//        EventPayload payload{EventType::CharInput};
+//        payload.charCode = charPressed;
+//        UIEvent event(EventType::CharInput, targetNode);
+//		event.payload = payload;
+//        eventQueue->pushEvent(event);
+//    }
 }
 
 void InteractionHandler::handleShouldClose() {
@@ -127,14 +151,14 @@ void InteractionHandler::handleShouldClose() {
 		EventPayload payload{EventType::Close};
         UIEvent event(EventType::Close, renderableNodes->at(0)->node);
 		event.payload = payload;
-        eventQueue.pushEvent(event);
+        eventQueue->pushEvent(event);
 	}
 }
 
 void InteractionHandler::consumeEvents() {
 	handleShouldClose();
     handleMouseEvents();
-    handleKeyboardEvents();
+//    handleKeyboardEvents();
 }
 
 void InteractionHandler::handlerLoop() {

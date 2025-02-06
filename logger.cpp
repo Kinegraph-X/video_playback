@@ -81,6 +81,13 @@ namespace LogUtils {
     }
     
     template <>
+    std::string toString<RaylibVector2>(const RaylibVector2& vect) {
+        std::ostringstream oss;
+        oss << "Vector(" << vect.x << ", " << vect.y << ")";
+        return oss.str();
+    }
+    
+    template <>
     std::string toString<RaylibRectangle>(const RaylibRectangle& rect) {
         std::ostringstream oss;
         oss << "Rectangle(" << rect.x << ", " << rect.y 

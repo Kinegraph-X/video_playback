@@ -13,10 +13,8 @@
 #include "DOM/Button.h" // IWYU pragma: export
 #include "templates/styleDefinitions.h"
 #include "templates/template.h"
-#include "uiInteractions.h"
-
-
 #include <dbghelp.h>
+#include <handleUIInteractions.h>
 #pragma comment(lib, "dbghelp.lib")
 
 
@@ -24,7 +22,7 @@
 void cleanup(
 		SDLManager* sdl_manager,
 		RaylibManager* raylibManager,
-		InteractionHandler& interactionHandler,
+		InteractionHandler* interactionHandler,
 		CommandProcessor& commandProcessor,
 		std::thread& commandThread,
 		ImageRescaler* rescaler,
@@ -56,6 +54,7 @@ void cleanup(
 	av_frame_free(&frame);
 	
 //	interactionHandler.stop();
+	delete interactionHandler;
 	
 	delete rootNode;
 	
@@ -67,7 +66,7 @@ void initRescaler(RaylibManager* renderManager, AVCodecContext* videoCodecContex
     logger(LogLevel::DEBUG, "Width of render : " + std::to_string(width));
     logger(LogLevel::DEBUG, "Height of render : " + std::to_string(height));
     WindowSize windowSize{width, height};
-    renderManager->resizeWindowFileLoaded(videoCodecContext, &windowSize);
+    renderManager->resizeWindowFileLoaded(videoCodecContext, windowSize);
 }
 
 int WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow) {
@@ -90,10 +89,11 @@ int WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int n
 	int currentPlayerId = -1;
 	
 	PlayerThreadHandler* playerHandler = nullptr;
+	AVCodecContext* codecContext = nullptr;
 	std::unique_ptr<ShouldRenderHandler> renderHandler = nullptr;
 	SDL_Event event;
 	int titleBarHeight = 31;
-	int uiHeight = 144;
+	int uiHeight = 113;
 	
 	InitialParams initialParams = InitialParams{
 		100,
@@ -122,9 +122,9 @@ int WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int n
 	pugi::xml_document doc = loadTemplate(templateName);
 	
 	BasicLayout layout;
-	EventQueue eventQueue;
+	std::shared_ptr<EventQueue> eventQueue = std::make_shared<EventQueue>();
 	EventBatch eventBatch;
-	InteractionHandler interactionHandler(eventQueue);
+	InteractionHandler* interactionHandler = new InteractionHandler(eventQueue);
 	StyleManager styleManager;
 	createStyles(styleManager);
 	NodeCreatorWalker walker(styleManager);
@@ -132,6 +132,8 @@ int WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int n
 	doc.traverse(walker);
 	RootNode* rootNode = walker.rootNode;
 	layout.makeLayout(rootNode, currentWindowPosition);
+	
+	
 
 	/*
 	* MAIN PLAYER WINDOW
@@ -144,6 +146,8 @@ int WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int n
 	}
 	
 	RaylibManager* raylibManager = new RaylibManager(
+		initialParams.xPos,
+		initialParams.yPos,
 		initialParams.width,
 		initialParams.height,
 		titleBarHeight,
@@ -152,8 +156,9 @@ int WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int n
 		*rescaler,
 		"JAGF - Just-Another-Good-FFmpegPlayer"
 	);
+//	RaylibSetTargetFPS(1000);
 	raylibManager->render();
-	interactionHandler.acquireRenderableNodes(layout.renderableNodes);
+	interactionHandler->acquireRenderableNodes(layout.renderableNodes);
 //	interactionHandler.start();	
 	
 	/*
@@ -162,6 +167,12 @@ int WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int n
     CommandProcessor commandProcessor(isRunning, sdl_manager->audioDevice, socket_params.port);
     std::thread commandThread(&CommandProcessor::listeningLoop, &commandProcessor);
 //    commandProcessor.handleLoad(filePath);
+
+
+	/*
+	* BUTTONS EVENT HANDLERS
+	*/
+	prepareInteractions(*raylibManager, rootNode, eventQueue, codecContext);
 	
 	
 	//!RaylibWindowShouldClose()
@@ -172,9 +183,10 @@ int WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int n
 			logger(LogLevel::DEBUG, "currentPlayer changed");
 			currentPlayerId = commandProcessor.activeHandlerId;
 			playerHandler = commandProcessor.getPlayerHandlerAt(currentPlayerId);
+			codecContext = playerHandler->formatHandler->getVideoCodecContext();
 			initRescaler(
 				raylibManager,
-				playerHandler->formatHandler->getVideoCodecContext(),
+				codecContext,
 				titleBarHeight
 			);
 			renderHandler = std::make_unique<ShouldRenderHandler>(playerHandler->videoFrameQueue);
@@ -193,7 +205,7 @@ int WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int n
                                 }
 								else {
 									raylibManager->renderFrame(frame);
-									interactionHandler.consumeEvents();
+									interactionHandler->consumeEvents();
 									renderHandled = true;
 									av_frame_unref(frame);
 								}
@@ -205,13 +217,17 @@ int WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int n
 			      break;
 			}
 		}
-
+		
+		
 		if (!renderHandled) {
 			RaylibPollInputEvents();
-			interactionHandler.consumeEvents();
+			interactionHandler->consumeEvents();
 		}
 		
-		eventQueue.populateBatch(eventBatch);
+//		logger(LogLevel::DEBUG, "FRAAAAAAAAAME");
+//		logger(LogLevel::DEBUG, "Size of event Queue : " + std::to_string(eventQueue.get()->getSize()));
+		
+		eventQueue->populateBatch(eventBatch);
 		for (UIEvent& event : eventBatch.getEvents()) {
 			if (event.targetNode == rootNode) {
 				if (event.payload.type == EventType::Close) {
@@ -219,6 +235,9 @@ int WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int n
 				}
 			}
 			else {
+				if (event.payload.type == EventType::MouseMove) {
+//					logger(LogLevel::DEBUG, "MouseMove sent");
+				}
 				event.targetNode->handleEvent(event.payload);
 				renderRequired = true;
 			}
@@ -228,9 +247,10 @@ int WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int n
         	raylibManager->render();
 		}
 		
+//		logger(LogLevel::DEBUG, "Size of event Queue : " + std::to_string(eventQueue.get()->getSize()));
 		eventBatch.clear();
         
-        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+        std::this_thread::sleep_for(std::chrono::microseconds(20));
     }
 	
 	cleanup(
@@ -247,6 +267,3 @@ int WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int n
 	   
     return 0;
 }
-
-
-
